@@ -144,7 +144,8 @@ typedef struct
     uint32_t file_format_version;
     
     char station_code[6];
-    char channel;
+    char channel[1];
+    
     double station_latitude;
     double station_longitude;
     double station_elevation;
@@ -1007,15 +1008,10 @@ void savedat(rdm *data,const char *path)
     gmtime_r(&t2,&jcal2);                           // Get the julian equivalent of the unix time 
                                                     // The conversion of all this data into a string is done below      
                                                     // %.*s prints out a defined number of characters from a provided string
-    snprintf(buf,72,"%s%.*s_%c_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm",path,6,data->station_code,data->channel,jcal1.tm_year+1900,jcal1.tm_mon+1,jcal1.tm_mday,jcal1.tm_hour,jcal1.tm_min,jcal1.tm_sec,data->unix_us[0],jcal2.tm_hour,jcal2.tm_min,jcal2.tm_sec,data->unix_us[DATA_SIZE-1]);
+    snprintf(buf,72,"%s%.*s_%s_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm",path,6,data->station_code,data->channel,jcal1.tm_year+1900,jcal1.tm_mon+1,jcal1.tm_mday,jcal1.tm_hour,jcal1.tm_min,jcal1.tm_sec,data->unix_us[0],jcal2.tm_hour,jcal2.tm_min,jcal2.tm_sec,data->unix_us[DATA_SIZE-1]);
     //printf("%s",buf);
+    //printf("%i %i %i %i %i %i %i %i %i %i",data->intensity[0],data->intensity[1],data->intensity[2],data->intensity[3],data->intensity[4],data->intensity[5],data->intensity[6],data->intensity[7],data->intensity[8],data->intensity[9]);
     
-    /*
-    int fd,len;
-    fd=open(path,O_RDWR|O_CREAT|O_TRUNC,00644);
-    len= write(fd,data,sizeof(data));
-    close(fd);
-    */
     
     FILE *file_path;
     file_path=fopen(buf,"wb");
@@ -1074,7 +1070,7 @@ int  main()
         .header_size=2,
         .file_format_version=1,
         .station_code="CN5698",
-        .channel='F',
+        .channel="F",
         .station_latitude=54.23,
         .station_longitude=-65.12,
         .station_elevation=21.54,
@@ -1097,11 +1093,11 @@ int  main()
     Init_ADC(gain,sps,mode);
     Init_Single_Channel(channel);
 	
-    while(count<12000)
+    while(count<DATA_SIZE)
 	{
-        if(count==11999){
-            count=DATA_SIZE-1;
-        }
+        //if(count==23999){
+            //count=DATA_SIZE-1;
+        //}
         
         
         adc= Read_Single_Channel(channel);
@@ -1114,9 +1110,12 @@ int  main()
     }	
     rad_data.num_samples=count;
     rad_data.checksum=cksum;
+    printf("%lld \n\n\n",cksum);
+    clock_t t1=clock();
     savedat(&rad_data,"//home//pi//Desktop//");
     //printf("%s",getenv("PATH"));
-    
+    clock_t t2=clock();
+    printf("%f\n",(double)(t2-t1)/CLOCKS_PER_SEC);
     bcm2835_spi_end();
     bcm2835_close();
     return 0;
