@@ -196,7 +196,7 @@ enum
 	CMD_RESET   = 0xFE, // Reset to Power-Up Values 1111   1110 (FEh)
 };
 
-rdm  rad_data;
+rdm  rad_data,config;
 ADS1256_VAR_T g_tADS1256;
 static const uint8_t s_tabDataRate[ADS1256_DRATE_MAX] =
 {
@@ -249,6 +249,7 @@ int32_t Read_Single_Channel(uint8_t channel);
 void Init_Single_Channel(uint8_t channel);
 uint8_t getgain(double givengain);
 void savedat(rdm *data,const char *path);
+int Runtime(double time);
 
 void  bsp_DelayUS(uint64_t micros)
 {
@@ -999,7 +1000,8 @@ int32_t Read_Single_Channel(uint8_t channel)
 
 void savedat(rdm *data,const char *path)
 {
-    char buf[73];                                   // Define length of filename . and _ take two element spaces, letters and characters take 1.
+    //
+    char buf[128];                                   // Define length of filename . and _ take two element spaces, letters and characters take 1.
                                                     // CCNNNN_X_YYYYMMDD-HHMMSS.UUUUUU_hhmmss.uuuuuu.rdm is the full extension CCNNNN is the station code string
     time_t t1=(time_t)data->unix_s[0];              // Get the time_t version of the first sample in the data structure
     time_t t2=(time_t)data->unix_s[DATA_SIZE-1];    // Get the time_t version of the final sample in the data structure
@@ -1008,14 +1010,14 @@ void savedat(rdm *data,const char *path)
     gmtime_r(&t2,&jcal2);                           // Get the julian equivalent of the unix time 
                                                     // The conversion of all this data into a string is done below      
                                                     // %.*s prints out a defined number of characters from a provided string
-    snprintf(buf,72,"%s%.*s_%s_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm",path,6,data->station_code,data->channel,jcal1.tm_year+1900,jcal1.tm_mon+1,jcal1.tm_mday,jcal1.tm_hour,jcal1.tm_min,jcal1.tm_sec,data->unix_us[0],jcal2.tm_hour,jcal2.tm_min,jcal2.tm_sec,data->unix_us[DATA_SIZE-1]);
+    snprintf(buf,127,"%s%.*s_%s_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm",path,6,data->station_code,data->channel,jcal1.tm_year+1900,jcal1.tm_mon+1,jcal1.tm_mday,jcal1.tm_hour,jcal1.tm_min,jcal1.tm_sec,data->unix_us[0],jcal2.tm_hour,jcal2.tm_min,jcal2.tm_sec,data->unix_us[DATA_SIZE-1]);
     //printf("%s",buf);
     //printf("%i %i %i %i %i %i %i %i %i %i",data->intensity[0],data->intensity[1],data->intensity[2],data->intensity[3],data->intensity[4],data->intensity[5],data->intensity[6],data->intensity[7],data->intensity[8],data->intensity[9]);
-    
     
     FILE *file_path;
     file_path=fopen(buf,"wb");
     fwrite(data,sizeof(*data),1,file_path);
+    
 }
 
 /*
@@ -1033,6 +1035,29 @@ void Init_Single_Channel(uint8_t channel)
     ADS1256_SetChannal(channel);	/*Switch channel mode */
     bsp_DelayUS(5);
 }
+
+/*
+*********************************************************************************************************
+*	name: Init_Single_Channel
+*	function: Initializes a channel
+*	parameter: The channel
+*	The return value:  NULL
+*********************************************************************************************************
+*/
+int Runtime(double time)
+{
+    int run;
+    if(time==-1){
+        run=-1;
+        return run;
+    }
+    else{
+        // One run is 500s and one hour has 3600s, therefore the ratio of 36/5 is how many runs can be done in one hour
+        run=(int)ceil(time*(7.2));
+        return run;
+    }
+}
+
 /*
 *********************************************************************************************************
 *	name: main
@@ -1048,6 +1073,10 @@ int  main()
   	int32_t adc=0;
     uint64_t cksum=0;
     uint32_t count=0;
+    int run_hrs=-1;
+    
+    int loops =0;
+    int i=0;
     // Configuration
     
     // reading mode (single input/differential)
@@ -1066,7 +1095,9 @@ int  main()
     uint8_t channel=0;
     
     struct timespec tp; 
-    rad_data=(rdm){
+    
+    // Define a configuration for the radiometer
+    config=(rdm){
         .header_size=2,
         .file_format_version=1,
         .station_code="CN5698",
@@ -1077,7 +1108,7 @@ int  main()
         .instrument_string="This is a test.",
         };
     
-    
+    loops = Runtime(run_hrs);
     
     if (!bcm2835_init())
         return 1;
@@ -1093,32 +1124,41 @@ int  main()
     Init_ADC(gain,sps,mode);
     Init_Single_Channel(channel);
 	
-    while(count<DATA_SIZE)
-	{
-        //if(count==23999){
-            //count=DATA_SIZE-1;
-        //}
-        
-        
-        adc= Read_Single_Channel(channel);
-        clock_gettime(CLOCK_REALTIME,&tp);
-        cksum+=adc;
-        rad_data.intensity[count]=adc;
-        rad_data.unix_s[count]=tp.tv_sec;
-        rad_data.unix_us[count]=tp.tv_nsec/1000;
-        count++;
-    }	
-    rad_data.num_samples=count;
-    rad_data.checksum=cksum;
-    printf("%lld \n\n\n",cksum);
-    clock_t t1=clock();
-    savedat(&rad_data,"//home//pi//Desktop//");
-    //printf("%s",getenv("PATH"));
-    clock_t t2=clock();
-    printf("%f\n",(double)(t2-t1)/CLOCKS_PER_SEC);
+    while(1){
+        rad_data=config;
+        while(count<DATA_SIZE){
+            if(count==629144){
+                count=DATA_SIZE-1;
+            }
+            adc= Read_Single_Channel(channel);
+            clock_gettime(CLOCK_REALTIME,&tp);
+            cksum+=adc;
+            rad_data.intensity[count]=adc;
+            rad_data.unix_s[count]=tp.tv_sec;
+            rad_data.unix_us[count]=tp.tv_nsec/1000;
+            count++;
+        }   
+            
+        rad_data.num_samples=count;
+        rad_data.checksum=cksum;
+        //printf("%lld\n",cksum);
+        savedat(&rad_data,"//home//pi//Desktop//Michael//RDM//");
+        rad_data=(rdm){0};
+        count=0;
+        if(loops!=-1){
+            i++;
+            if(i==loops){
+                break;
+            }
+        }
+    }
+
     bcm2835_spi_end();
     bcm2835_close();
     return 0;
 }
 
 // printf("%lld\n",(long long)rad_data.checksum); // How to print long numbers
+//if(count==1000){
+//                count=DATA_SIZE-1;
+//            }
