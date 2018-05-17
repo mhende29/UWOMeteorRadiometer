@@ -830,7 +830,7 @@ int32_t Read_Single_Channel(uint8_t channel)
 void savedat(rdm *data, const char *path)
 {
     // Define length of filename including the path
-    char buf[128];                                   
+    char buf[128];
     
     // CCNNNN_X_YYYYMMDD-HHMMSS.UUUUUU_hhmmss.uuuuuu.rdm is the full extension CCNNNN is the station code string
     // Get the time_t version of the first sample in the data structure
@@ -850,15 +850,19 @@ void savedat(rdm *data, const char *path)
                                                    
     // The conversion of all this data into a string is done below      
     // %.*s prints out a defined number of characters from a provided string
-    snprintf(buf,127,"%s%.*s_%s_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm", path, 6,
+    snprintf(buf, 127, "%s%.*s_%s_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm", path, 6,
     data->station_code, data->channel, jcal1.tm_year+1900, jcal1.tm_mon+1, jcal1.tm_mday, jcal1.tm_hour,
     jcal1.tm_min, jcal1.tm_sec, data->unix_us[0], jcal2.tm_hour, jcal2.tm_min, jcal2.tm_sec,
     data->unix_us[DATA_SIZE-1]);
     
     // Open a file and save the data in binary
     FILE *file_path;
-    file_path=fopen(buf, "wb");
-    fwrite(data,sizeof(*data), 1, file_path);
+    file_path = fopen(buf, "wb");
+    
+    if(fwrite(data, sizeof(*data), 1, file_path) != 1){
+        printf("Error while writing file!");
+    }
+    
     
 }
 
@@ -912,13 +916,13 @@ int Runtime(double time)
 
 int  main()
 {
-    uint32_t num =0;
-  	int32_t adc=0;
-    uint64_t cksum=0;
-    uint32_t count=0;
+    uint32_t num = 0;
+  	int32_t adc = 0;
+    uint64_t cksum = 0;
+    uint32_t count = 0;
     
-    int loops =0;
-    int i=0;
+    int loops = 0;
+    int i = 0;
     
     struct timespec tp; 
     
@@ -940,36 +944,36 @@ int  main()
     double sps = 3750; 
     
     // 0 for one channel, 1 for multiple channels
-    uint8_t single_channel=0; 
+    uint8_t single_channel = 0; 
 
-    uint8_t channel=0;
+    uint8_t channel = 0;
     
     // Define a configuration for the radiometer
-    config=(rdm){
+    rad_data = (rdm){
         
         // Size of header in bytes including 
-        .header_size=118,
+        .header_size = 120,
         
         
-        .file_format_version=1,
+        .file_format_version = 1,
         
         
-        .station_code="CA0001",
+        .station_code = "CA0001",
         
         
-        .channel="A",
+        .channel = 'A',
         
         
-        .station_latitude=43.19279,
+        .station_latitude = 43.19279,
         
         
-        .station_longitude=-81.31566,
+        .station_longitude = -81.31566,
         
         
-        .station_elevation=324.0,
+        .station_elevation = 324.0,
         
         
-        .instrument_string="Radiometer prototype.",
+        .instrument_string = "Radiometer prototype.",
         
         };
         
@@ -979,40 +983,56 @@ int  main()
     
     loops = Runtime(run_hrs);
     
-    Init_ADC(gain,sps,mode);
+    Init_ADC(gain, sps, mode);
     Init_Single_Channel(channel);
 	
     
     while(1){
         
         printf("Recording a new file");
-        rad_data=config;
         
-        while(count<DATA_SIZE){
+        while(count < DATA_SIZE){
+            
+            // TEST!!!
+            // Read only first 2k samples
+            if(count == 2000){
+                count=DATA_SIZE - 1;
+            }
         
-            adc= Read_Single_Channel(channel);
+            adc = Read_Single_Channel(channel);
         
-            clock_gettime(CLOCK_REALTIME,&tp);
+            clock_gettime(CLOCK_REALTIME, &tp);
         
-            cksum+=adc;
+            cksum += adc;
         
-            rad_data.intensity[count]=adc;
+            rad_data.intensity[count] = adc;
         
-            rad_data.unix_s[count]=tp.tv_sec;
+            rad_data.unix_s[count] = tp.tv_sec;
         
-            rad_data.unix_us[count]=tp.tv_nsec/1000;
+            rad_data.unix_us[count] = tp.tv_nsec/1000;
         
             count++;
         }   
             
-        rad_data.num_samples=count;
-        rad_data.checksum=cksum;
-        savedat(&rad_data,"//home//pi//RadiometerData//");
-        rad_data=(rdm){0};
-        count=0;
-        if(loops!=-1){
+        rad_data.num_samples = DATA_SIZE;
+        rad_data.checksum = cksum;
+        
+        printf("data: %d\n", rad_data.intensity[DATA_SIZE-1]);
+        printf("s: %d\n", rad_data.unix_s[DATA_SIZE-1]);
+        printf("us: %d\n", rad_data.unix_us[DATA_SIZE-1]);
+        
+        // Save data to disk
+        savedat(&rad_data, "//home//pi//RadiometerData//");
+        
+        // Reset structure
+        //rad_data=(rdm){0};
+        
+        count = 0;
+        
+        // Stop running if over runtime
+        if(loops != -1){
             i++;
-            if(i==loops){
+            if(i == loops){
                 break;
             }
         }

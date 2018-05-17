@@ -36,9 +36,6 @@ def readBinary(file_name, checksum_check=False):
     with open(file_name, 'rb') as fid:
         
         rdm = RDM()
-
-        # Read the header
-        # rdm.header_size = 120
         
         rdm.header_size = np.fromfile(fid, dtype=np.uint32, count=1)[0]
         rdm.format_file_version=np.fromfile(fid, dtype=np.uint32, count=1)[0]
@@ -97,7 +94,7 @@ if __name__ == "__main__":
     
     
     # Read the binary RDM file
-    rdm , chksum_pass = readBinary("/home/pi/Desktop/Michael/RDM/CN5698_F_20180517-151352.421700_151852.044475.rdm")
+    rdm , chksum_pass = readBinary("/home/pi/RadiometerData/CA0001_A_20180517-204232.428425_204232.908395.rdm")
     
     # Tell us if the chksum passed
     print(chksum_pass)
