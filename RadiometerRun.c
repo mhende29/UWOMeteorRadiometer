@@ -1073,7 +1073,7 @@ int  main()
   	int32_t adc=0;
     uint64_t cksum=0;
     uint32_t count=0;
-    int run_hrs=-1;
+    double run_hrs=-1; // -1 means run forever
     
     int loops =0;
     int i=0;
@@ -1124,12 +1124,11 @@ int  main()
     Init_ADC(gain,sps,mode);
     Init_Single_Channel(channel);
 	
+    
     while(1){
+        
         rad_data=config;
         while(count<DATA_SIZE){
-            if(count==629144){
-                count=DATA_SIZE-1;
-            }
             adc= Read_Single_Channel(channel);
             clock_gettime(CLOCK_REALTIME,&tp);
             cksum+=adc;
@@ -1141,7 +1140,6 @@ int  main()
             
         rad_data.num_samples=count;
         rad_data.checksum=cksum;
-        //printf("%lld\n",cksum);
         savedat(&rad_data,"//home//pi//Desktop//Michael//RDM//");
         rad_data=(rdm){0};
         count=0;
