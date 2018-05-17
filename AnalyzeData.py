@@ -59,6 +59,10 @@ def readBinary(file_name, checksum_check=False):
         
         rdm.checksum = np.fromfile(fid, dtype=np.uint64, count=1)[0]
         
+        
+        # Skip to data
+        fid.seek(rdm.header_size)
+        
         # Read the tabular data
         table = np.fromfile(fid, dtype=np.uint32, count=3*(rdm.num_samples))
         table = np.reshape(table, (3, rdm.num_samples))

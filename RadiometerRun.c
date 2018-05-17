@@ -38,26 +38,26 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-//CS      -----   SPICS  
-//DIN     -----   MOSI
+//CS    -----   SPICS  
+//DIN   -----   MOSI
 //DOUT  -----   MISO
-//SCLK   -----   SCLK
-//DRDY  -----   ctl_IO     data  starting
-//RST     -----   ctl_IO     reset
+//SCLK  -----   SCLK
+//DRDY  -----   ctl_IO     data starting
+//RST   -----   ctl_IO     reset
 
 
 
-#define  DRDY  RPI_GPIO_P1_11         //P0
-#define  RST  RPI_GPIO_P1_12     //P1
+#define DRDY    RPI_GPIO_P1_11  //P0
+#define RST     RPI_GPIO_P1_12  //P1
 #define	SPICS	RPI_GPIO_P1_15	//P3
 
-#define CS_1() bcm2835_gpio_write(SPICS,HIGH)
+#define CS_1()  bcm2835_gpio_write(SPICS,HIGH)
 #define CS_0()  bcm2835_gpio_write(SPICS,LOW)
 
-#define DRDY_IS_LOW()	((bcm2835_gpio_lev(DRDY)==0))
+#define DRDY_IS_LOW()   ((bcm2835_gpio_lev(DRDY)==0))
 
-#define RST_1() 	bcm2835_gpio_write(RST,HIGH);
-#define RST_0() 	bcm2835_gpio_write(RST,LOW);
+#define RST_1()     bcm2835_gpio_write(RST,HIGH);
+#define RST_0()     bcm2835_gpio_write(RST,LOW);
 
 
 
@@ -66,77 +66,18 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 #define uint16_t unsigned short    
 #define uint32_t unsigned long     
 
+//Data size is 2^20 which represents approximately 500 seconds worth of data samples
 #define DATA_SIZE 1048576
-//Data size is 2^20 which represents approximately 10 minutes worth of data samples
 
 
+/* Defining Boolean Types  */
 typedef enum {FALSE = 0, TRUE = !FALSE} bool;
-
-
-/* gain channelî */
-typedef enum
-{
-	ADS1256_GAIN_1			= (0),	/* GAIN   1 */
-	ADS1256_GAIN_2			= (1),	/*GAIN   2 */
-	ADS1256_GAIN_4			= (2),	/*GAIN   4 */
-	ADS1256_GAIN_8			= (3),	/*GAIN   8 */
-	ADS1256_GAIN_16			= (4),	/* GAIN  16 */
-	ADS1256_GAIN_32			= (5),	/*GAIN    32 */
-	ADS1256_GAIN_64			= (6),	/*GAIN    64 */
-}ADS1256_GAIN_E;
-
-/* Sampling speed choice*/
-/* 
-	11110000 = 30,000SPS (default)
-	11100000 = 15,000SPS
-	11010000 = 7,500SPS
-	11000000 = 3,750SPS
-	10110000 = 2,000SPS
-	10100001 = 1,000SPS
-	10010010 = 500SPS
-	10000010 = 100SPS
-	01110010 = 60SPS
-	01100011 = 50SPS
-	01010011 = 30SPS
-	01000011 = 25SPS
-	00110011 = 15SPS
-	00100011 = 10SPS
-	00010011 = 5SPS
-	00000011 = 2.5SPS
-*/
-typedef enum
-{
-	ADS1256_30000SPS = 0,
-	ADS1256_15000SPS,
-	ADS1256_7500SPS,
-	ADS1256_3750SPS,
-	ADS1256_2000SPS,
-	ADS1256_1000SPS,
-	ADS1256_500SPS,
-	ADS1256_100SPS,
-	ADS1256_60SPS,
-	ADS1256_50SPS,
-	ADS1256_30SPS,
-	ADS1256_25SPS,
-	ADS1256_15SPS,
-	ADS1256_10SPS,
-	ADS1256_5SPS,
-	ADS1256_2d5SPS,
-
-	ADS1256_DRATE_MAX
-}ADS1256_DRATE_E;
-
-#define ADS1256_DRAE_COUNT = 15;
 
 typedef struct
 {
-	ADS1256_GAIN_E Gain;		/* GAIN  */
-	ADS1256_DRATE_E DataRate;	/* DATA output  speed*/
-	int32_t AdcNow[8];			/* ADC  Conversion value */
 	uint8_t Channel;			/* The current channel*/
 	uint8_t ScanMode;	/*Scanning mode,   0  Single-ended input  8 channel£¬ 1 Differential input  4 channel*/
 }ADS1256_VAR_T;
-
 
 typedef struct 
 {
@@ -160,69 +101,44 @@ typedef struct
 }rdm;
 
 
-/*Register definition£º Table 23. Register Map --- ADS1256 datasheet Page 30*/
+/*Register definitions Table 23. Register Map --- ADS1256 datasheet Page 30*/
 enum
 {
 	/*Register address, followed by reset the default values */
-	REG_STATUS = 0,	// x1H
-	REG_MUX    = 1, // 01H
-	REG_ADCON  = 2, // 20H
-	REG_DRATE  = 3, // F0H
-	REG_IO     = 4, // E0H
-	REG_OFC0   = 5, // xxH
-	REG_OFC1   = 6, // xxH
-	REG_OFC2   = 7, // xxH
-	REG_FSC0   = 8, // xxH
-	REG_FSC1   = 9, // xxH
+	REG_STATUS = 0,	 // x1H
+	REG_MUX    = 1,  // 01H
+	REG_ADCON  = 2,  // 20H
+	REG_DRATE  = 3,  // F0H
+	REG_IO     = 4,  // E0H
+	REG_OFC0   = 5,  // xxH
+	REG_OFC1   = 6,  // xxH
+	REG_OFC2   = 7,  // xxH
+	REG_FSC0   = 8,  // xxH
+	REG_FSC1   = 9,  // xxH
 	REG_FSC2   = 10, // xxH
 };
 
-/* Command definition£º TTable 24. Command Definitions --- ADS1256 datasheet Page 34 */
+/* Command definitions TTable 24. Command Definitions --- ADS1256 datasheet Page 34 */
 enum
 {
-	CMD_WAKEUP  = 0x00,	// Completes SYNC and Exits Standby Mode 0000  0000 (00h)
-	CMD_RDATA   = 0x01, // Read Data 0000  0001 (01h)
-	CMD_RDATAC  = 0x03, // Read Data Continuously 0000   0011 (03h)
-	CMD_SDATAC  = 0x0F, // Stop Read Data Continuously 0000   1111 (0Fh)
-	CMD_RREG    = 0x10, // Read from REG rrr 0001 rrrr (1xh)
-	CMD_WREG    = 0x50, // Write to REG rrr 0101 rrrr (5xh)
-	CMD_SELFCAL = 0xF0, // Offset and Gain Self-Calibration 1111    0000 (F0h)
-	CMD_SELFOCAL= 0xF1, // Offset Self-Calibration 1111    0001 (F1h)
-	CMD_SELFGCAL= 0xF2, // Gain Self-Calibration 1111    0010 (F2h)
-	CMD_SYSOCAL = 0xF3, // System Offset Calibration 1111   0011 (F3h)
-	CMD_SYSGCAL = 0xF4, // System Gain Calibration 1111    0100 (F4h)
-	CMD_SYNC    = 0xFC, // Synchronize the A/D Conversion 1111   1100 (FCh)
-	CMD_STANDBY = 0xFD, // Begin Standby Mode 1111   1101 (FDh)
-	CMD_RESET   = 0xFE, // Reset to Power-Up Values 1111   1110 (FEh)
+	CMD_WAKEUP  = 0x00,	// Completes SYNC and Exits Standby Mode . 0000   0000 (00h)
+	CMD_RDATA   = 0x01, // Read Data ............................. 0000   0001 (01h)
+	CMD_RDATAC  = 0x03, // Read Data Continuously ................ 0000   0011 (03h)
+	CMD_SDATAC  = 0x0F, // Stop Read Data Continuously ........... 0000   1111 (0Fh)
+	CMD_RREG    = 0x10, // Read from REG ....................... rrr 0001 rrrr (1xh)
+	CMD_WREG    = 0x50, // Write to REG ........................ rrr 0101 rrrr (5xh)
+	CMD_SELFCAL = 0xF0, // Offset and Gain Self-Calibration ...... 1111   0000 (F0h)
+	CMD_SELFOCAL= 0xF1, // Offset Self-Calibration ............... 1111   0001 (F1h)
+	CMD_SELFGCAL= 0xF2, // Gain Self-Calibration ................. 1111   0010 (F2h)
+	CMD_SYSOCAL = 0xF3, // System Offset Calibration ............. 1111   0011 (F3h)
+	CMD_SYSGCAL = 0xF4, // System Gain Calibration ............... 1111   0100 (F4h)
+	CMD_SYNC    = 0xFC, // Synchronize the A/D Conversion ........ 1111   1100 (FCh)
+	CMD_STANDBY = 0xFD, // Begin Standby Mode .................... 1111   1101 (FDh)
+	CMD_RESET   = 0xFE, // Reset to Power-Up Values .............. 1111   1110 (FEh)
 };
 
 rdm  rad_data,config;
 ADS1256_VAR_T g_tADS1256;
-static const uint8_t s_tabDataRate[ADS1256_DRATE_MAX] =
-{
-	0xF0,		/*reset the default values  */
-	0xE0,
-	0xD0,
-	0xC0,
-	0xB0,
-	0xA1,
-	0x92,
-	0x82,
-	0x72,
-	0x63,
-	0x53,
-	0x43,
-	0x33,
-	0x20,
-	0x13,
-	0x03
-};
-
-
-
-
-
-
 
 void  bsp_DelayUS(uint64_t micros);
 void ADS1256_StartScan(uint8_t _ucScanMode);
@@ -239,10 +155,6 @@ static void ADS1256_SetDiffChannal(uint8_t _ch);
 static void ADS1256_WaitDRDY(void);
 static int32_t ADS1256_ReadData(void);
 
-int32_t ADS1256_GetAdc(uint8_t _ch);
-void ADS1256_ISR(void);
-uint8_t ADS1256_Scan(void);
-
 uint8_t samplerate(double ratenum);
 void Init_ADC(double _gain,double _sps,uint8_t _mode);
 int32_t Read_Single_Channel(uint8_t channel);
@@ -251,21 +163,30 @@ uint8_t getgain(double givengain);
 void savedat(rdm *data,const char *path);
 int Runtime(double time);
 
+
+/*
+*********************************************************************************************************
+*	Name: bsp_DelayUS
+*	Description: A delay of a desired amount of microseconds
+*	Arguments: 
+*       micros: The desired amount of microseconds
+*	Return: NULL
+*********************************************************************************************************
+*/
+
 void  bsp_DelayUS(uint64_t micros)
 {
 		bcm2835_delayMicroseconds (micros);
 }
 
-
 /*
 *********************************************************************************************************
-*	name: bsp_InitADS1256
-*	function: Configuration of the STM32 GPIO and SPI interface£¬The connection ADS1256
-*	parameter: NULL
-*	The return value: NULL
+*	Name: bsp_InitADS1256
+*	Description: Configuration of the STM32 GPIO and SPI interface£¬The connection ADS1256
+*	Arguments: NULL
+*	Return: NULL
 *********************************************************************************************************
 */
-
 
 void bsp_InitADS1256(void)
 {
@@ -275,46 +196,40 @@ void bsp_InitADS1256(void)
 	DI_0();
 #endif
 
-//ADS1256_CfgADC(ADS1256_GAIN_1, ADS1256_1000SPS);	/* ÅäÖÃADC²ÎÊý£º ÔöÒæ1:1, ÊýŸÝÊä³öËÙÂÊ 1KHz */
 }
-
-
-
-
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_StartScan
-*	function: Configuration DRDY PIN for external interrupt is triggered
-*	parameter: _ucDiffMode : 0  Single-ended input  8 channel£¬ 1 Differential input  4 channe
-*	The return value: NULL
+*	Name: ADS1256_StartScan
+*	Description: Sets the scan mode to single input or differential input
+*	Arguments: 
+*       _ucScanMode : 0 Single-ended input, 1 Differential input
+*	Return: NULL
 *********************************************************************************************************
 */
+
 void ADS1256_StartScan(uint8_t _ucScanMode)
 {
 	g_tADS1256.ScanMode = _ucScanMode;
-	/* ¿ªÊŒÉšÃèÇ°, ÇåÁãœá¹û»º³åÇø */
+	
 	{
 		uint8_t i;
 
 		g_tADS1256.Channel = 0;
-
-		for (i = 0; i < 8; i++)
-		{
-			g_tADS1256.AdcNow[i] = 0;
-		}
 	}
 
 }
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_Send8Bit
-*	function: SPI bus to send 8 bit data
-*	parameter: _data:  data
-*	The return value: NULL
+*	Name: ADS1256_Send8Bit
+*	Description: SPI bus to send 8 bit data
+*	Arguments: 
+*       _data:  The data to be sent
+*	Return: NULL
 *********************************************************************************************************
 */
+
 static void ADS1256_Send8Bit(uint8_t _data)
 {
 
@@ -324,22 +239,24 @@ static void ADS1256_Send8Bit(uint8_t _data)
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_CfgADC
-*	function: The configuration parameters of ADC, gain and data rate
-*	parameter: _gain:gain 1-64
-*                      _drate:  data  rate
-*	The return value: NULL
+*	Name: ADS1256_CfgADC
+*	Description: The configuration parameters of ADC, gain and data rate
+*	Arguments: 
+*       _gain:  Desired gain 
+*       _drate: Desired samples per second
+*	Return: NULL
 *********************************************************************************************************
 */
+
 void ADS1256_CfgADC(uint8_t _gain, uint8_t _drate)
 {
-	g_tADS1256.Gain = _gain;
-	g_tADS1256.DataRate = _drate;
 
+    // Wait before sending data
 	ADS1256_WaitDRDY();
 
 	{
-        uint8_t buf[4];		/* Storage ads1256 register configuration parameters */
+        /* Storage ads1256 register configuration parameters */
+        uint8_t buf[4];		
 
 		/*Status register define
 			Bits 7-4 ID3, ID2, ID1, ID0  Factory Programmed Identification Bits (Read Only)
@@ -402,9 +319,10 @@ void ADS1256_CfgADC(uint8_t _gain, uint8_t _drate)
 		*/
 		buf[2] = (0 << 5) | (0 << 3) | (_gain << 0);
 		//ADS1256_WriteReg(REG_ADCON, (0 << 5) | (0 << 2) | (GAIN_1 << 1));	/*choose 1: gain 1 ;input 5V/
-		buf[3] = _drate;	// DRATE_10SPS;	
+		buf[3] = _drate;	
 
-		CS_0();	/* SPIÆ¬Ñ¡ = 0 */
+        // Send the configuration parameters to the ADC
+		CS_0();	
 		ADS1256_Send8Bit(CMD_WREG | 0);	/* Write command register, send the register address */
 		ADS1256_Send8Bit(0x03);			/* Register number 4,Initialize the number  -1*/
 
@@ -419,15 +337,15 @@ void ADS1256_CfgADC(uint8_t _gain, uint8_t _drate)
 	bsp_DelayUS(50);
 }
 
-
 /*
 *********************************************************************************************************
-*	name: ADS1256_DelayDATA
-*	function: delay
-*	parameter: NULL
-*	The return value: NULL
+*	Name: ADS1256_DelayDATA
+*	Description: Delay of 10 microseconds
+*	Arguments: NULL
+*	Return: NULL
 *********************************************************************************************************
 */
+
 static void ADS1256_DelayDATA(void)
 {
 	/*
@@ -437,17 +355,16 @@ static void ADS1256_DelayDATA(void)
 	bsp_DelayUS(10);	/* The minimum time delay 6.5us */
 }
 
-
-
-
 /*
 *********************************************************************************************************
-*	name: ADS1256_Recive8Bit
-*	function: SPI bus receive function
-*	parameter: NULL
-*	The return value: NULL
+*	Name: ADS1256_Recive8Bit
+*	Description: SPI bus receive function
+*	Arguments: NULL
+*	Return: 
+*       read: The byte that is read in from the bus
 *********************************************************************************************************
 */
+
 static uint8_t ADS1256_Recive8Bit(void)
 {
 	uint8_t read = 0;
@@ -457,70 +374,79 @@ static uint8_t ADS1256_Recive8Bit(void)
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_WriteReg
-*	function: Write the corresponding register
-*	parameter: _RegID: register  ID
-*			 _RegValue: register Value
-*	The return value: NULL
+*	Name: ADS1256_WriteReg
+*	Description: Write the corresponding register
+*	Arguments: 
+*       _RegID: Register ID
+*		_RegValue: Register Value
+*	Return: NULL
 *********************************************************************************************************
 */
+
 static void ADS1256_WriteReg(uint8_t _RegID, uint8_t _RegValue)
 {
-	CS_0();	/* SPI  cs  = 0 */
-	ADS1256_Send8Bit(CMD_WREG | _RegID);	/*Write command register */
-	ADS1256_Send8Bit(0x00);		/*Write the register number */
-
-	ADS1256_Send8Bit(_RegValue);	/*send register value */
-	CS_1();	/* SPI   cs = 1 */
+	CS_0();	                                /*        SPI  cs = 0        */
+	ADS1256_Send8Bit(CMD_WREG | _RegID);	/*   Write command register  */
+	ADS1256_Send8Bit(0x00);		            /* Write the register number */
+                                            /*                           */
+	ADS1256_Send8Bit(_RegValue);	        /*    Send register value    */
+	CS_1();	                                /*        SPI  cs = 1        */
 }
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_ReadReg
-*	function: Read  the corresponding register
-*	parameter: _RegID: register  ID
-*	The return value: read register value
+*	Name: ADS1256_ReadReg
+*	Description: Read the corresponding register
+*	Arguments: 
+*       _RegID: Register ID
+*	Return: 
+*       read: Register value read
 *********************************************************************************************************
 */
+
 static uint8_t ADS1256_ReadReg(uint8_t _RegID)
 {
 	uint8_t read;
 
-	CS_0();	/* SPI  cs  = 0 */
-	ADS1256_Send8Bit(CMD_RREG | _RegID);	/* Write command register */
-	ADS1256_Send8Bit(0x00);	/* Write the register number */
-
-	ADS1256_DelayDATA();	/*delay time */
-
-	read = ADS1256_Recive8Bit();	/* Read the register values */
-	CS_1();	/* SPI   cs  = 1 */
+	CS_0();	                                /*         SPI cs = 0        */
+	ADS1256_Send8Bit(CMD_RREG | _RegID);	/*  Write command register   */
+	ADS1256_Send8Bit(0x00);	                /* Write the register number */
+                                            /*                           */
+	ADS1256_DelayDATA();	                /*         delay time        */
+                                            /*                           */
+	read = ADS1256_Recive8Bit();	        /*  Read the register values */
+	CS_1();	                                /*         SPI cs = 1        */
 
 	return read;
 }
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_WriteCmd
-*	function: Sending a single byte order
-*	parameter: _cmd : command
-*	The return value: NULL
+*	Name: ADS1256_WriteCmd
+*	Description: Sending a single byte order
+*	Arguments: 
+*       _cmd : Desired command
+*	Return: NULL
 *********************************************************************************************************
 */
+
 static void ADS1256_WriteCmd(uint8_t _cmd)
 {
-	CS_0();	/* SPI   cs = 0 */
-	ADS1256_Send8Bit(_cmd);
-	CS_1();	/* SPI  cs  = 1 */
+	CS_0();	                /* SPI   cs = 0 */
+	ADS1256_Send8Bit(_cmd); /*              */
+	CS_1();	                /* SPI  cs  = 1 */
 }
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_ReadChipID
-*	function: Read the chip ID
-*	parameter: _cmd : NULL
-*	The return value: four high status register
+*	Name: ADS1256_ReadChipID
+*	Description: Read the chip ID
+*	Arguments: NULL
+*	Return: 
+*       id: status register shift 4 bits
 *********************************************************************************************************
 */
+
 uint8_t ADS1256_ReadChipID(void)
 {
 	uint8_t id;
@@ -532,12 +458,14 @@ uint8_t ADS1256_ReadChipID(void)
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_SetChannal
-*	function: Configuration channel number
-*	parameter:  _ch:  channel number  0--7
-*	The return value: NULL
+*	Name: ADS1256_SetChannal
+*	Description: Configuration channel number
+*	Arguments:  
+*       _ch: Channel number 0--7
+*	Return: NULL
 *********************************************************************************************************
 */
+
 static void ADS1256_SetChannal(uint8_t _ch)
 {
 	/*
@@ -575,12 +503,14 @@ static void ADS1256_SetChannal(uint8_t _ch)
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_SetDiffChannal
-*	function: The configuration difference channel
-*	parameter:  _ch:  channel number  0--3
-*	The return value:  four high status register
+*	Name: ADS1256_SetDiffChannal
+*	Description: The configuration difference channel
+*	Arguments:  
+*       _ch:  Channel number 0--3
+*	Return: NULL
 *********************************************************************************************************
 */
+
 static void ADS1256_SetDiffChannal(uint8_t _ch)
 {
 	/*
@@ -628,12 +558,13 @@ static void ADS1256_SetDiffChannal(uint8_t _ch)
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_WaitDRDY
-*	function: delay time  wait for automatic calibration
-*	parameter:  NULL
-*	The return value:  NULL
+*	Name: ADS1256_WaitDRDY
+*	Description: Delay time  wait for automatic calibration
+*	Arguments: NULL
+*	Return: NULL
 *********************************************************************************************************
 */
+
 static void ADS1256_WaitDRDY(void)
 {
 	uint32_t i;
@@ -653,33 +584,38 @@ static void ADS1256_WaitDRDY(void)
 
 /*
 *********************************************************************************************************
-*	name: ADS1256_ReadData
-*	function: read ADC value
-*	parameter: NULL
-*	The return value:  NULL
+*	Name: ADS1256_ReadData
+*	Description: Read ADC value
+*	Arguments: NULL
+*	Return: 
+*      read: Return the 24 bit number read by the ADC
 *********************************************************************************************************
 */
+
 static int32_t ADS1256_ReadData(void)
 {
 	uint32_t read = 0;
     static uint8_t buf[3];
 
-	CS_0();	/* SPI   cs = 0 */
+	CS_0();	
+    
+    /* read ADC command */
+	ADS1256_Send8Bit(CMD_RDATA);	
 
-	ADS1256_Send8Bit(CMD_RDATA);	/* read ADC command  */
+    /* delay time */
+	ADS1256_DelayDATA();	
 
-	ADS1256_DelayDATA();	/*delay time  */
-
-	/*Read the sample results 24bit*/
+	/* Read the sample results 24bit 1 byte at a time */
     buf[0] = ADS1256_Recive8Bit();
     buf[1] = ADS1256_Recive8Bit();
     buf[2] = ADS1256_Recive8Bit();
 
+    /* Combine the 3 read bytes into one 24 bit number */
     read = ((uint32_t)buf[0] << 16) & 0x00FF0000;
-    read |= ((uint32_t)buf[1] << 8);  /* Pay attention to It is wrong   read |= (buf[1] << 8) */
+    read |= ((uint32_t)buf[1] << 8);  
     read |= buf[2];
 
-	CS_1();	/* SPIÆ¬Ñ¡ = 1 */
+	CS_1();	
 
 	/* Extend a signed number*/
     if (read & 0x800000)
@@ -690,161 +626,31 @@ static int32_t ADS1256_ReadData(void)
 	return (int32_t)read;
 }
 
-
 /*
 *********************************************************************************************************
-*	name: ADS1256_GetAdc
-*	function: read ADC value
-*	parameter:  channel number 0--7
-*	The return value:  ADC vaule (signed number)
+*	Name: Init_ADC
+*	Description:  Initializes the micro and sets the gain, sample rate and mode of the ADC
+*	Arguments: 
+*       _gain: Is the gain
+*       _sps : Is the sample rate
+*       _mode: Is the mode, either single or differential
+*	Return: NULL
 *********************************************************************************************************
 */
-int32_t ADS1256_GetAdc(uint8_t _ch)
-{
-	int32_t iTemp;
 
-	if (_ch > 7)
-	{
-		return 0;
-	}
-
-	iTemp = g_tADS1256.AdcNow[_ch];
-
-	return iTemp;
-}
-
-/*
-*********************************************************************************************************
-*	name: ADS1256_ISR
-*	function: Collection procedures
-*	parameter: NULL
-*	The return value:  NULL
-*********************************************************************************************************
-*/
-void ADS1256_ISR(void)
-{
-	if (g_tADS1256.ScanMode == 0)	/*  0  Single-ended input  8 channel£¬ 1 Differential input  4 channe */
-	{
-
-		ADS1256_SetChannal(g_tADS1256.Channel);	/*Switch channel mode */
-		bsp_DelayUS(5);
-
-		ADS1256_WriteCmd(CMD_SYNC);
-		bsp_DelayUS(5);
-
-		ADS1256_WriteCmd(CMD_WAKEUP);
-		bsp_DelayUS(25);
-
-		if (g_tADS1256.Channel == 0)
-		{
-			g_tADS1256.AdcNow[7] = ADS1256_ReadData();	
-		}
-		else
-		{
-			g_tADS1256.AdcNow[g_tADS1256.Channel-1] = ADS1256_ReadData();	
-		}
-
-		if (++g_tADS1256.Channel >= 8)
-		{
-			g_tADS1256.Channel = 0;
-		}
-	}
-	else	/*DiffChannal*/
-	{
-		
-		ADS1256_SetDiffChannal(g_tADS1256.Channel);	/* change DiffChannal */
-		bsp_DelayUS(5);
-
-		ADS1256_WriteCmd(CMD_SYNC);
-		bsp_DelayUS(5);
-
-		ADS1256_WriteCmd(CMD_WAKEUP);
-		bsp_DelayUS(25);
-
-		if (g_tADS1256.Channel == 0)
-		{
-			g_tADS1256.AdcNow[3] = ADS1256_ReadData();	
-		}
-		else
-		{
-			g_tADS1256.AdcNow[g_tADS1256.Channel-1] = ADS1256_ReadData();	
-		}
-
-		if (++g_tADS1256.Channel >= 4)
-		{
-			g_tADS1256.Channel = 0;
-		}
-	}
-}
-
-/*
-*********************************************************************************************************
-*	name: ADS1256_Scan
-*	function: 
-*	parameter:NULL
-*	The return value:  1
-*********************************************************************************************************
-*/
-uint8_t ADS1256_Scan(void)
-{
-	if (DRDY_IS_LOW())
-	{
-		ADS1256_ISR();
-		return 1;
-	}
-
-	return 0;
-}
-/*
-*********************************************************************************************************
-*	name: Write_DAC8552
-*	function:  DAC send data 
-*	parameter: channel : output channel number 
-*			   data : output DAC value 
-*	The return value:  NULL
-*********************************************************************************************************
-*/
-void Write_DAC8552(uint8_t channel, uint16_t Data)
-{
-	uint8_t i;
-
-	 CS_1() ;
-	 CS_0() ;
-      bcm2835_spi_transfer(channel);
-      bcm2835_spi_transfer((Data>>8));
-      bcm2835_spi_transfer((Data&0xff));  
-      CS_1() ;
-}
-/*
-*********************************************************************************************************
-*	name: Voltage_Convert
-*	function:  Voltage value conversion function
-*	parameter: Vref : The reference voltage 3.3V or 5V
-*			   voltage : output DAC value 
-*	The return value:  NULL
-*********************************************************************************************************
-*/
-uint16_t Voltage_Convert(float Vref, float voltage)
-{
-	uint16_t _D_;
-	_D_ = (uint16_t)(65536 * voltage / Vref);
-    
-	return _D_;
-}
-
-/*
-*********************************************************************************************************
-*	name: Init_ADC
-*	function:  Sets the gain, sample rate and mode of the ADC
-*	parameter: _gain: Is the gain
-*              _sps : Is the sample rate
-*              _mode: Is the mode, either single or differential
-*	The return value:  NULL
-*********************************************************************************************************
-*/
 void Init_ADC(double _gain,double _sps,uint8_t _mode)
 {
 	
+    bcm2835_init();
+    bcm2835_spi_begin();
+    bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_LSBFIRST );    // The default
+    bcm2835_spi_setDataMode(BCM2835_SPI_MODE1);                  // The default
+    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_1024); // The default
+    bcm2835_gpio_fsel(SPICS, BCM2835_GPIO_FSEL_OUTP);
+    bcm2835_gpio_write(SPICS, HIGH);
+    bcm2835_gpio_fsel(DRDY, BCM2835_GPIO_FSEL_INPT);
+    bcm2835_gpio_set_pud(DRDY, BCM2835_GPIO_PUD_UP);
+    
     uint8_t gain=getgain(_gain);
     uint8_t sps=samplerate(_sps);
     
@@ -854,62 +660,64 @@ void Init_ADC(double _gain,double _sps,uint8_t _mode)
 
 /*
 *********************************************************************************************************
-*	name: samplerate
-*	function:  gives the hex value associated to the sample rate
-*	parameter: ratenum : the decimal version of the rate
-*			   
-*	The return value:  sps : sps hex code 
+*	Name: samplerate
+*	Description: Gives the hex value associated to the sample rate
+*	Arguments: 
+*       ratenum : The decimal version of the rate	   
+*	Return:  
+*       rate : The samples per second hex code 
 *********************************************************************************************************
 */
+
 uint8_t samplerate(double ratenum)
 {
     uint8_t rate;
-    if((ratenum-30000)==0){
+    if(ratenum==30000){
         rate=0xF0;
     }
-    else if ((ratenum-15000)==0){
+    else if (ratenum==15000){
         rate=0xE0;
     }
-    else if ((ratenum-7500)==0){
+    else if (ratenum==7500){
         rate=0xD0;
     }
-    else if ((ratenum-3750)==0){
+    else if (ratenum==3750){
         rate=0xC0;
     }
-    else if ((ratenum-2000)==0){
+    else if (ratenum==2000){
         rate=0xB0;
     }
-    else if ((ratenum-1000)==0){
+    else if (ratenum==1000){
         rate=0xA1;
     }
-    else if ((ratenum-500)==0){
+    else if (ratenum==500){
         rate=0x92;
     }
-    else if ((ratenum-100)==0){
+    else if (ratenum==100){
         rate=0x82;
     }
-    else if ((ratenum-60)==0){
+    else if (ratenum==60){
         rate=0x72;
     }
-    else if ((ratenum-50)==0){
+    else if (ratenum==50){
         rate=0x63;
     }
-    else if ((ratenum-30)==0){
+    else if (ratenum==30){
         rate=0x53;
     }
-    else if ((ratenum-25)==0){
+    else if (ratenum==25){
         rate=0x43;
     }
-    else if ((ratenum-15)==0){
+    else if (ratenum==15){
         rate=0x33;
     }
-    else if ((ratenum-10)==0){
+    else if (ratenum==10){
         rate=0x23;
     }
-    else if ((ratenum-5)==0){
+    else if (ratenum=5){
         rate=0x13;
     }
-    else if ((ratenum-2.5)==0){
+    else if (ratenum==2.5){
         rate=0x03;
     }
     else{
@@ -920,13 +728,15 @@ uint8_t samplerate(double ratenum)
 
 /*
 *********************************************************************************************************
-*	name: getgain
-*	function:  gives the value associated to the given gain
-*	parameter: ratenum : the decimal value of the gain
-*			   
-*	The return value:  gain : gain code 
+*	Name: getgain
+*	Description: Gives the value associated to the given gain
+*	Arguments: 
+*       givengain : The decimal value of the gain
+*	Return:  
+*       gain : The gain code 
 *********************************************************************************************************
 */
+
 uint8_t getgain(double givengain)
 {
     uint8_t gain;
@@ -961,15 +771,19 @@ uint8_t getgain(double givengain)
 
 /*
 *********************************************************************************************************
-*	name: Read_Single_Channel
-*	function: Reads a given channel
-*	parameter: The channel number
-*	The return value:  The ADU value read
+*	Name: Read_Single_Channel
+*	Description: Reads a given channel
+*	Arguments: 
+*       channel: The channel number
+*	Return: 
+*       The ADU value read
 *********************************************************************************************************
 */
+
 int32_t Read_Single_Channel(uint8_t channel)
 {
-    uint8_t done=0; //0 means not done, 1 means done
+    // 0 means not done, 1 means done
+    uint8_t done=0; 
     
     // Confirms the channel we want to read is the one were set to
     if(g_tADS1256.Channel!=channel)
@@ -979,6 +793,7 @@ int32_t Read_Single_Channel(uint8_t channel)
     }
     
     while(done == 0){
+        
         // While the data ready pin is waiting for a new sample loop 
         // until its ready
         if (DRDY_IS_LOW())
@@ -990,58 +805,85 @@ int32_t Read_Single_Channel(uint8_t channel)
             // Complete the sync
             ADS1256_WriteCmd(CMD_WAKEUP);
             bsp_DelayUS(25);
+            
             // Acknowledge data is ready to be read
             done=1;
         }
     }
+    
     // Return the sampled value
     return ADS1256_ReadData();	
 }
 
-void savedat(rdm *data,const char *path)
+/*
+*********************************************************************************************************
+*	Name: savedat
+*	Description: Saves the rdm struct to the desired file path
+*	Arguments: 
+*       *data : Input the address of the struct. Ex: &my_struct
+*       *path : Input the desired path string. Ex: "//home//path_to_desired_file//"
+*        Note : Must use two // in order to properly format the string
+*	Return: NULL
+*********************************************************************************************************
+*/
+
+void savedat(rdm *data, const char *path)
 {
-    //
-    char buf[128];                                   // Define length of filename . and _ take two element spaces, letters and characters take 1.
-                                                    // CCNNNN_X_YYYYMMDD-HHMMSS.UUUUUU_hhmmss.uuuuuu.rdm is the full extension CCNNNN is the station code string
-    time_t t1=(time_t)data->unix_s[0];              // Get the time_t version of the first sample in the data structure
-    time_t t2=(time_t)data->unix_s[DATA_SIZE-1];    // Get the time_t version of the final sample in the data structure
-    struct tm jcal1,jcal2;                          // jcal= julian calendar
-    gmtime_r(&t1,&jcal1);                           // Get the julian equivalent of the unix time 
-    gmtime_r(&t2,&jcal2);                           // Get the julian equivalent of the unix time 
-                                                    // The conversion of all this data into a string is done below      
-                                                    // %.*s prints out a defined number of characters from a provided string
-    snprintf(buf,127,"%s%.*s_%s_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm",path,6,data->station_code,data->channel,jcal1.tm_year+1900,jcal1.tm_mon+1,jcal1.tm_mday,jcal1.tm_hour,jcal1.tm_min,jcal1.tm_sec,data->unix_us[0],jcal2.tm_hour,jcal2.tm_min,jcal2.tm_sec,data->unix_us[DATA_SIZE-1]);
-    //printf("%s",buf);
-    //printf("%i %i %i %i %i %i %i %i %i %i",data->intensity[0],data->intensity[1],data->intensity[2],data->intensity[3],data->intensity[4],data->intensity[5],data->intensity[6],data->intensity[7],data->intensity[8],data->intensity[9]);
+    // Define length of filename including the path
+    char buf[128];                                   
     
+    // CCNNNN_X_YYYYMMDD-HHMMSS.UUUUUU_hhmmss.uuuuuu.rdm is the full extension CCNNNN is the station code string
+    // Get the time_t version of the first sample in the data structure
+    time_t t1 = (time_t)data->unix_s[0];           
+    
+    // Get the time_t version of the final sample in the data structure   
+    time_t t2 = (time_t)data->unix_s[DATA_SIZE-1];    
+    
+    // jcal = julian calendar variables
+    struct tm jcal1, jcal2;           
+    
+    // Get the julian equivalent of the unix time               
+    gmtime_r(&t1, &jcal1);  
+    
+    // Get the julian equivalent of the unix time                          
+    gmtime_r(&t2, &jcal2);                            
+                                                   
+    // The conversion of all this data into a string is done below      
+    // %.*s prints out a defined number of characters from a provided string
+    snprintf(buf,127,"%s%.*s_%s_%04d%02d%02d-%02d%02d%02d.%06d_%02d%02d%02d.%06d.rdm", path, 6,
+    data->station_code, data->channel, jcal1.tm_year+1900, jcal1.tm_mon+1, jcal1.tm_mday, jcal1.tm_hour,
+    jcal1.tm_min, jcal1.tm_sec, data->unix_us[0], jcal2.tm_hour, jcal2.tm_min, jcal2.tm_sec,
+    data->unix_us[DATA_SIZE-1]);
+    
+    // Open a file and save the data in binary
     FILE *file_path;
-    file_path=fopen(buf,"wb");
-    fwrite(data,sizeof(*data),1,file_path);
+    file_path=fopen(buf, "wb");
+    fwrite(data,sizeof(*data), 1, file_path);
     
 }
 
 /*
 *********************************************************************************************************
-*	name: Init_Single_Channel
-*	function: Initializes a channel
-*	parameter: The channel
-*	The return value:  NULL
+*	Name: Init_Single_Channel
+*	Description: Initializes a channel
+*	Arguments: The channel
+*	Return:  NULL
 *********************************************************************************************************
 */
 void Init_Single_Channel(uint8_t channel)
 {
     // Record the current channel being sampled
-    g_tADS1256.Channel=channel;
+    g_tADS1256.Channel = channel;
     ADS1256_SetChannal(channel);	/*Switch channel mode */
     bsp_DelayUS(5);
 }
 
 /*
 *********************************************************************************************************
-*	name: Init_Single_Channel
-*	function: Initializes a channel
-*	parameter: The channel
-*	The return value:  NULL
+*	Name: Init_Single_Channel
+*	Description: Initializes a channel
+*	Arguments: The channel
+*	Return:  NULL
 *********************************************************************************************************
 */
 int Runtime(double time)
@@ -1052,7 +894,8 @@ int Runtime(double time)
         return run;
     }
     else{
-        // One run is 500s and one hour has 3600s, therefore the ratio of 36/5 is how many runs can be done in one hour
+        // One run is 500s and one hour has 3600s, therefore the ratio of 36/5 is how many runs can be done 
+        // in one hour. 36/5=7.2
         run=(int)ceil(time*(7.2));
         return run;
     }
@@ -1060,10 +903,10 @@ int Runtime(double time)
 
 /*
 *********************************************************************************************************
-*	name: main
-*	function:  
-*	parameter: NULL
-*	The return value:  NULL
+*	Name: main
+*	Description:  
+*	Arguments: NULL
+*	Return:  NULL
 *********************************************************************************************************
 */
 
@@ -1073,53 +916,68 @@ int  main()
   	int32_t adc=0;
     uint64_t cksum=0;
     uint32_t count=0;
-    double run_hrs=-1; // -1 means run forever
     
     int loops =0;
     int i=0;
-    // Configuration
-    
-    // reading mode (single input/differential)
-    uint8_t mode=0; //Mode is either 0 for single input or 1 for differential
-    
-    // gain
-    double gain=1; //Gains are 1,2,4,8,16,32 and 64
-    
-    // sps
-    double sps=3750; // Function sample rate determines the equivalent hex value associated to the sps
-    // Inputs must be 30000,15000,7500,3750,2000,1000,500,100,60,50,30,25,15,10,5,2.5
-    
-    // single/multi channel
-    uint8_t single_channel=0; // 0 for one channel, 1 for multiple channels
-
-    uint8_t channel=0;
     
     struct timespec tp; 
     
+    
+    //// Configuration /////
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
+    // Number of hours to run, -1 means run forever
+    double run_hrs = -1;
+    
+    //Mode is either 0 for single input or 1 for differential
+    uint8_t mode = 0;
+    
+    //Gains are 1,2,4,8,16,32 and 64
+    double gain = 1; 
+    
+    // Function sample rate determines the equivalent hex value associated to the sps
+    // Inputs must be 30000,15000,7500,3750,2000,1000,500,100,60,50,30,25,15,10,5,2.5
+    double sps = 3750; 
+    
+    // 0 for one channel, 1 for multiple channels
+    uint8_t single_channel=0; 
+
+    uint8_t channel=0;
+    
     // Define a configuration for the radiometer
     config=(rdm){
-        .header_size=2,
+        
+        // Size of header in bytes including 
+        .header_size=120,
+        
+        
         .file_format_version=1,
-        .station_code="CN5698",
-        .channel="F",
-        .station_latitude=54.23,
-        .station_longitude=-65.12,
-        .station_elevation=21.54,
-        .instrument_string="This is a test.",
+        
+        
+        .station_code="CA0001",
+        
+        
+        .channel="A",
+        
+        
+        .station_latitude=43.19279,
+        
+        
+        .station_longitude=-81.31566,
+        
+        
+        .station_elevation=324.0,
+        
+        
+        .instrument_string="Radiometer prototype.",
+        
         };
+        
+        
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    
     
     loops = Runtime(run_hrs);
-    
-    if (!bcm2835_init())
-        return 1;
-    bcm2835_spi_begin();
-    bcm2835_spi_setBitOrder(BCM2835_SPI_BIT_ORDER_LSBFIRST );      // The default
-    bcm2835_spi_setDataMode(BCM2835_SPI_MODE1);                   // The default
-    bcm2835_spi_setClockDivider(BCM2835_SPI_CLOCK_DIVIDER_1024); // The default
-    bcm2835_gpio_fsel(SPICS, BCM2835_GPIO_FSEL_OUTP);//
-    bcm2835_gpio_write(SPICS, HIGH);
-    bcm2835_gpio_fsel(DRDY, BCM2835_GPIO_FSEL_INPT);
-    bcm2835_gpio_set_pud(DRDY, BCM2835_GPIO_PUD_UP);    
     
     Init_ADC(gain,sps,mode);
     Init_Single_Channel(channel);
@@ -1127,14 +985,23 @@ int  main()
     
     while(1){
         
+        printf("Recording a new file");
         rad_data=config;
+        
         while(count<DATA_SIZE){
+        
             adc= Read_Single_Channel(channel);
+        
             clock_gettime(CLOCK_REALTIME,&tp);
+        
             cksum+=adc;
+        
             rad_data.intensity[count]=adc;
+        
             rad_data.unix_s[count]=tp.tv_sec;
+        
             rad_data.unix_us[count]=tp.tv_nsec/1000;
+        
             count++;
         }   
             
