@@ -1007,7 +1007,7 @@ int  main()
             
         rad_data.num_samples=count;
         rad_data.checksum=cksum;
-        savedat(&rad_data,"//home//pi//Desktop//Michael//RDM//");
+        savedat(&rad_data,"//home//pi//RadiometerData//");
         rad_data=(rdm){0};
         count=0;
         if(loops!=-1){
