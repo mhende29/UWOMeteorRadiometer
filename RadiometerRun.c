@@ -856,12 +856,14 @@ void savedat(rdm *data, const char *path)
     data->unix_us[DATA_SIZE-1]);
     
     // Open a file and save the data in binary
-    FILE *file_path;
-    file_path = fopen(buf, "wb");
+    FILE *fp;
+    fp = fopen(buf, "wb");
     
-    if(fwrite(data, sizeof(*data), 1, file_path) != 1){
+    if(fwrite(data, sizeof(*data), 1, fp) != 1){
         printf("Error while writing file!");
     }
+    
+    fclose(fp);
     
     
 }
@@ -949,7 +951,7 @@ int  main()
     uint8_t channel = 0;
     
     // Define a configuration for the radiometer
-    rad_data = (rdm){
+    config = (rdm){
         
         // Size of header in bytes including 
         .header_size = 120,
@@ -980,9 +982,10 @@ int  main()
         
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     
-    
+    // Compute the number of files to record
     loops = Runtime(run_hrs);
     
+    // Init ADC
     Init_ADC(gain, sps, mode);
     Init_Single_Channel(channel);
 	
@@ -991,13 +994,16 @@ int  main()
         
         printf("Recording a new file");
         
+        // Reset data structure
+        rad_data = config;
+        
         while(count < DATA_SIZE){
             
-            // TEST!!!
-            // Read only first 2k samples
-            if(count == 2000){
-                count=DATA_SIZE - 1;
-            }
+            //~ // TEST!!!
+            //~ // Read only first 2k samples
+            //~ if(count == 2000){
+                //~ count=DATA_SIZE - 1;
+            //~ }
         
             adc = Read_Single_Channel(channel);
         
@@ -1017,15 +1023,11 @@ int  main()
         rad_data.num_samples = DATA_SIZE;
         rad_data.checksum = cksum;
         
-        printf("data: %d\n", rad_data.intensity[DATA_SIZE-1]);
-        printf("s: %d\n", rad_data.unix_s[DATA_SIZE-1]);
-        printf("us: %d\n", rad_data.unix_us[DATA_SIZE-1]);
-        
         // Save data to disk
         savedat(&rad_data, "//home//pi//RadiometerData//");
         
         // Reset structure
-        //rad_data=(rdm){0};
+        rad_data=(rdm){0};
         
         count = 0;
         
