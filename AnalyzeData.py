@@ -97,7 +97,7 @@ if __name__ == "__main__":
     
     
     # Read the binary RDM file
-    rdm , chksum_pass = readBinary("CN5698_F_20180516-191427.955038_192247.283928.rdm")
+    rdm , chksum_pass = readBinary("/home/pi/Desktop/Michael/RDM/CN5698_F_20180517-151352.421700_151852.044475.rdm")
     
     # Tell us if the chksum passed
     print(chksum_pass)

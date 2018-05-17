@@ -948,7 +948,7 @@ int  main()
     config=(rdm){
         
         // Size of header in bytes including 
-        .header_size=120,
+        .header_size=118,
         
         
         .file_format_version=1,
