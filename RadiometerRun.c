@@ -1006,7 +1006,7 @@ int  main()
     
     while(1){
         
-        printf("Recording a new file");
+        printf("Recording a new file\n");
         
         // Reset data structure
         rad_data = config;
