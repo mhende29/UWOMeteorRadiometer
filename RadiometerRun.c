@@ -895,14 +895,14 @@ void Init_Single_Channel(uint8_t channel)
 int Runtime(double time)
 {
     int run;
-    if(time==-1){
-        run=-1;
+    if(time == -1){
+        run = -1;
         return run;
     }
     else{
         // One run is 500s and one hour has 3600s, therefore the ratio of 36/5 is how many runs can be done 
-        // in one hour. 36/5=7.2
-        run=(int)ceil(time*(7.2));
+        // in one hour. 36/5=7.2. From there, round up to produce a complete file.
+        run = (int)ceil(time*(7.2));
         return run;
     }
 }
@@ -918,7 +918,7 @@ int Runtime(double time)
 
 int  main()
 {
-    uint32_t num = 0;
+    
   	int32_t adc = 0;
     uint64_t cksum = 0;
     uint32_t count = 0;
@@ -946,8 +946,10 @@ int  main()
     double sps = 3750; 
     
     // 0 for one channel, 1 for multiple channels
+    // Unused at the moment
     uint8_t single_channel = 0; 
 
+    // Channel desired to be read
     uint8_t channel = 0;
     
     // Define a configuration for the radiometer
@@ -956,25 +958,26 @@ int  main()
         // Size of header in bytes including 
         .header_size = 120,
         
-        
+        // File format version, i.e. how the data is structured
         .file_format_version = 1,
         
-        
+        // Station code is comprised of the ISO-standard 2 letter country code followed by the alphanumeric 
+        // code of the station in the given country
         .station_code = "CA0001",
         
-        
+        // The alphanumeric code of the radiometric channel
         .channel = 'A',
         
-        
+        // The latitude of this station
         .station_latitude = 43.19279,
         
-        
+        // The longitude of this station
         .station_longitude = -81.31566,
         
-        
+        // The elevation above sea level of this station
         .station_elevation = 324.0,
         
-        
+        // Description of the instrument
         .instrument_string = "Radiometer prototype.",
         
         };
@@ -999,28 +1002,38 @@ int  main()
         
         while(count < DATA_SIZE){
             
-            //~ // TEST!!!
-            //~ // Read only first 2k samples
-            //~ if(count == 2000){
-                //~ count=DATA_SIZE - 1;
-            //~ }
-        
+            //// TEST!!!
+            //// Read only first 2k samples
+            //if(count == 2000){
+                //count = DATA_SIZE - 1;
+            //}
+            
+            // Acquire the current 24 bit adc value 
             adc = Read_Single_Channel(channel);
-        
+            
+            // Record the current unix time
             clock_gettime(CLOCK_REALTIME, &tp);
         
+            // Update our checksum
             cksum += adc;
         
+            // Record the current intensity reading
             rad_data.intensity[count] = adc;
         
+            // Record the current unix time
             rad_data.unix_s[count] = tp.tv_sec;
         
+            // Record the current microsecond component of the unix time
             rad_data.unix_us[count] = tp.tv_nsec/1000;
         
+            // Update the loop
             count++;
         }   
-            
+        
+        // Set the number of samples read equal to the size of the while loop
         rad_data.num_samples = DATA_SIZE;
+        
+        // Store the checksum value in the struct
         rad_data.checksum = cksum;
         
         // Save data to disk
@@ -1029,6 +1042,7 @@ int  main()
         // Reset structure
         rad_data=(rdm){0};
         
+        // Reset loop counter
         count = 0;
         
         // Stop running if over runtime
