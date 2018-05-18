@@ -2,6 +2,7 @@
 
 from __future__ import print_function
 
+import argparse
 import numpy as np
 
 
@@ -25,12 +26,17 @@ class RDM(object):
         self.num_samples = None
         self.checksum = None
         
+        self.unix_start_s = None;
+        self.unix_start_us = None;
+        self.unix_end_s = None;
+        self.unix_end_us = None;
+        
         self.unix_s = None
         self.unix_us = None
         self.intensity = None
 
 
-def readBinary(file_name, checksum_check=False):
+def readBinary(file_name, checksum_check=False, read_data=True):
     """ Read a binary file. """
 
     with open(file_name, 'rb') as fid:
@@ -56,32 +62,40 @@ def readBinary(file_name, checksum_check=False):
         
         rdm.checksum = np.fromfile(fid, dtype=np.uint64, count=1)[0]
         
+        # Read file begin/end time
+        rdm.unix_start_s = np.fromfile(fid, dtype=np.uint32, count=1)[0]
+        rdm.unix_start_us = np.fromfile(fid, dtype=np.uint32, count=1)[0]
+        rdm.unix_end_s = np.fromfile(fid, dtype=np.uint32, count=1)[0]
+        rdm.unix_end_us = np.fromfile(fid, dtype=np.uint32, count=1)[0]
         
-        # Skip to data
-        fid.seek(rdm.header_size)
+        # Read the data arrays
+        if read_data:
         
-        # Read the tabular data
-        table = np.fromfile(fid, dtype=np.uint32, count=3*(rdm.num_samples))
-        table = np.reshape(table, (3, rdm.num_samples))
-        
-        # Unpack the values from the table
-        rdm.time_s, rdm.time_us, rdm.intensity = table
-        
-        
-        if checksum_check:
+            # Skip to data
+            fid.seek(rdm.header_size)
             
-            # Compute the checksum
-            chksum = np.sum(rdm.intensity.astype(np.uint64))
+            # Read the tabular data
+            table = np.fromfile(fid, dtype=np.uint32, count=3*(rdm.num_samples))
+            table = np.reshape(table, (3, rdm.num_samples))
             
-            # Compare the computed checksum to the checksum in the file
-            if chksum == rdm.checksum:
-                return rdm, True
+            # Unpack the values from the table
+            rdm.time_s, rdm.time_us, rdm.intensity = table
+            
+            
+            if checksum_check:
                 
-            else:
-                return rdm, False
+                # Compute the checksum
+                chksum = np.sum(rdm.intensity.astype(np.uint64))
                 
-        else:
-            return rdm, False
+                # Compare the computed checksum to the checksum in the file
+                if chksum == rdm.checksum:
+                    return rdm, True
+                    
+                else:
+                    return rdm, False
+                    
+            
+        return rdm, False
 
         
 
@@ -92,9 +106,16 @@ if __name__ == "__main__":
     
     import matplotlib.pyplot as plt
     
+    # Set up input arguments
+    arg_p = argparse.ArgumentParser(description="Analyzes radiometer files.")
+    arg_p.add_argument('rdm_file', type=str, help="Path to the .rdm file.")
+    
+    # Parse input arguments
+    cml_args = arg_p.parse_args()
+    
     
     # Read the binary RDM file
-    rdm , chksum_pass = readBinary("/home/pi/RadiometerData/CA0001_A_20180517-215642.894616_215643.849392.rdm")
+    rdm , chksum_pass = readBinary(cml_args.rdm_file)
     
     # Tell us if the chksum passed
     print(chksum_pass)
@@ -110,6 +131,11 @@ if __name__ == "__main__":
     print(rdm.instrument_string)
     print(rdm.num_samples)
     print(rdm.checksum)
+    
+    print(rdm.unix_start_s)
+    print(rdm.unix_start_us)
+    print(rdm.unix_end_s)
+    print(rdm.unix_end_us)
         
     # Print the tabular data
     print(rdm.intensity)

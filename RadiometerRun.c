@@ -79,6 +79,8 @@ typedef struct
 	uint8_t ScanMode;	/*Scanning mode,   0  Single-ended input  8 channel£¬ 1 Differential input  4 channel*/
 }ADS1256_VAR_T;
 
+
+
 typedef struct 
 {
     uint32_t header_size;
@@ -95,10 +97,19 @@ typedef struct
     uint32_t num_samples;
     uint64_t checksum; 
     
+    // Begin and end times (UNIX time)
+    uint32_t unix_start_s;
+    uint32_t unix_start_us;
+    uint32_t unix_end_s;
+    uint32_t unix_end_us;
+    
+    // Data arrays
     uint32_t unix_s[DATA_SIZE];
     uint32_t unix_us[DATA_SIZE];
     uint32_t intensity[DATA_SIZE];
+    
 }rdm;
+
 
 
 /*Register definitions Table 23. Register Map --- ADS1256 datasheet Page 30*/
@@ -956,7 +967,7 @@ int  main()
     config = (rdm){
         
         // Size of header in bytes including 
-        .header_size = 120,
+        .header_size = 136,
         
         // File format version, i.e. how the data is structured
         .file_format_version = 1,
@@ -1002,11 +1013,11 @@ int  main()
         
         while(count < DATA_SIZE){
             
-            //// TEST!!!
-            //// Read only first 2k samples
-            //if(count == 2000){
-                //count = DATA_SIZE - 1;
-            //}
+            //~ // TEST!!!
+            //~ // Read only first 2k samples
+            //~ if(count == 2000){
+                //~ count = DATA_SIZE - 1;
+            //~ }
             
             // Acquire the current 24 bit adc value 
             adc = Read_Single_Channel(channel);
@@ -1029,6 +1040,12 @@ int  main()
             // Update the loop
             count++;
         }   
+        
+        // Assigning beginning and end times
+        rad_data.unix_start_s = rad_data.unix_s[0];
+        rad_data.unix_start_us = rad_data.unix_us[0];
+        rad_data.unix_end_s = rad_data.unix_s[DATA_SIZE-1];
+        rad_data.unix_end_us = rad_data.unix_us[DATA_SIZE-1];
         
         // Set the number of samples read equal to the size of the while loop
         rad_data.num_samples = DATA_SIZE;
