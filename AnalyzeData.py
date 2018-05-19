@@ -3,6 +3,8 @@
 from __future__ import print_function
 
 import argparse
+import os
+
 import numpy as np
 
 
@@ -115,7 +117,7 @@ if __name__ == "__main__":
     
     
     # Read the binary RDM file
-    rdm , chksum_pass = readBinary(cml_args.rdm_file)
+    rdm, chksum_pass = readBinary(cml_args.rdm_file)
     
     # Tell us if the chksum passed
     print(chksum_pass)
@@ -145,7 +147,23 @@ if __name__ == "__main__":
     # Convert UNIX times from int to one float
     unix_times = rdm.time_s.astype(np.float64) + rdm.time_us.astype(np.float64)/1e6
     print(unix_times)
-    plt.plot(unix_times, rdm.intensity)
+    
+    # Compute samples per second
+    sps = len(rdm.time_s)/(unix_times[-1] - unix_times[0])
+    
+    # Extract file name
+    _, file_name = os.path.split(cml_args.rdm_file)
+    file_name = file_name.replace('.rdm', '')
+    
+    plt.specgram(rdm.intensity, Fs=sps, cmap='inferno')
+    
+    plt.title(file_name)
+    plt.xlabel('Time (s)')
+    plt.ylabel('Frequency (Hz)')
+    
+    plt.savefig('/home/pi/Desktop/{:s}.png'.format(file_name), dpi=300)
+    
+    #plt.plot(unix_times, rdm.intensity)
     #plt.xlim((1526482266,1526482272))
     #plt.ylim((2740000,2760000))
     print(rdm.num_samples/(unix_times[-1]-unix_times[0]))
