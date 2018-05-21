@@ -140,14 +140,66 @@ def initNotchFilter(sps, freq, band, ripple, order, filter_type):
 
 
 
+def butterworthBandpassFilter(lowcut, highcut, fs, order=5):
+    """ Butterworth bandpass filter.
 
-def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3):
+    Argument:
+        lowcut: [float] Lower bandpass frequency (Hz).
+        highcut: [float] Upper bandpass frequency (Hz).
+        fs: [float] Sampling rate (Hz).
+
+    Keyword arguments:
+        order: [int] Butterworth filter order.
+
+    Return:
+        (b, a): [tuple] Butterworth filter.
+
+    """
+
+    # Calculate the Nyquist frequency
+    nyq = 0.5*fs
+
+    low = lowcut/nyq
+    high = highcut/nyq
+
+    # Init the filter
+    b, a = scipy.signal.butter(order, [low, high], analog=False, btype='band')
+
+    # Check if the filter is unstable
+    if np.all(np.abs(np.roots(a)) < 1):
+        print('The filter with bands from {:.2f} Hz to {:.2f} Hz is unstable and should not be used!'.format(
+            lowcut, highcut))
+
+    return b, a
+
+
+
+def filterBandpass(data, sps, bandpass_low, bandpass_high, order=6):
+    """ Run bandpass filtering. """
+
+    # Init the butterworth bandpass filter
+    butter_b, butter_a = butterworthBandpassFilter(bandpass_low, bandpass_high, sps, order=order)
+
+    # Filter the data
+    waveform_data = scipy.signal.lfilter(butter_b, butter_a, np.copy(data))
+
+    return waveform_data
+
+
+
+def filterLP(data, sps, mains_freq, lowpass=True, filter_order=2, additional=None):
     """ Filter out the light pollution using Chebyshev filters. 
     
     Arguments:
         data: [ndarray] Unfiltered data.
         sps: [float] Samples per second.
         mains_freq: [float] Electric grid frequency in Hz (50 for Europe, 60 for NA).
+    
+    Keyword arguments:
+        lowpass: [bool] Apply at lowpass filter (cutoff freq at the mains freq). True by default.
+        filter_oder: [int] Order of the Chebyasev filter (3 by default).
+        additional: [list] A list of (frequency, band width) tuples which define additional frequencies for
+            filtering.
 
     Return:
         [ndarray]: Filtered data.
@@ -155,7 +207,7 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3):
     """
 
     filter_type = 'cheby1'
-    ripple = 10.0
+    ripple = 5.0
 
     # Generate filter parameters for all harmonics
     filters_params = []
@@ -168,13 +220,16 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3):
         if i == 0:
             band_har = 7.5
         elif i == 1:
-            band_har = 5.5
-        elif i < 5:
-            band_har = 3.5
+            band_har = 6.0
         else:
-            band_har = 2.5
+            band_har = 4.0
 
         filters_params.append([sps, f_har, band_har, ripple, filter_order, filter_type])
+
+
+    if additional is not None:
+        for freq, band in additional:
+            filters_params.append([sps, freq, band, ripple, filter_order, filter_type])
 
 
     filtered_data = np.copy(data)
@@ -197,8 +252,8 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3):
         ### Apply a lowpass filter which will filter out everything above the grid frequency ###
 
         # Init the lowpass filter
-        Wn = mains_freq/(sps/2)
-        b, a = scipy.signal.butter(6, Wn)
+        Wn = mains_freq/(sps/2.0)
+        b, a = scipy.signal.butter(3, Wn)
 
         # Filter the data
         filtered_data = scipy.signal.filtfilt(b, a, filtered_data)
@@ -327,8 +382,15 @@ if __name__ == "__main__":
 
 
     # Filter the light pollution
-    filtered_data = filterLP(rdm.intensity, sps, 60.0)
+    mains_freq = 60.0 # Hz
+    filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0)])
 
+    # Apply a broad lowpass and a highpass filter
+    bandpass_low = 1.0 # Hz
+    bandpass_high = mains_freq
+    filtered_data = filterBandpass(filtered_data, sps, bandpass_low, bandpass_high, order=3)
+
+    print(filtered_data)
 
     # # Fit a sine
     # sine_fit = fitSine(time_relative[int(len(time_relative)*0.1):], filtered_data[int(len(time_relative)*0.1):], guess_freq=0.5)
