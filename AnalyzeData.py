@@ -315,7 +315,7 @@ if __name__ == "__main__":
     
 
     # Plot the spectrogram
-    plt.specgram(rdm.intensity, Fs=sps, cmap='inferno')
+    plt.specgram(rdm.intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=2048)
     
     plt.title(file_name)
     plt.xlabel('Time (s)')
@@ -342,7 +342,7 @@ if __name__ == "__main__":
 
 
     # Plot filtered spectrogram
-    plt.specgram(filtered_data, Fs=sps, cmap='inferno')
+    plt.specgram(filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=2048, noverlap=0)
 
     plt.title(file_name + ' filtered')
     plt.xlabel('Time (s)')
