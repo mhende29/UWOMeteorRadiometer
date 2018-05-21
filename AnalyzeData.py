@@ -167,7 +167,8 @@ def butterworthBandpassFilter(lowcut, highcut, fs, order=5):
 
     # Check if the filter is unstable
     if np.all(np.abs(np.roots(a)) < 1):
-        print('The filter with bands from {:.2f} Hz to {:.2f} Hz is unstable and should not be used!'.format(
+        print("""The filter with bands from {:.2f} Hz to {:.2f} Hz is unstable and should not be \
+used! It's roots are smaller than 1.""".format(
             lowcut, highcut))
 
     return b, a
@@ -187,7 +188,7 @@ def filterBandpass(data, sps, bandpass_low, bandpass_high, order=6):
 
 
 
-def filterLP(data, sps, mains_freq, lowpass=True, filter_order=2, additional=None):
+def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=None):
     """ Filter out the light pollution using Chebyshev filters. 
     
     Arguments:
@@ -207,7 +208,7 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=2, additional=Non
     """
 
     filter_type = 'cheby1'
-    ripple = 5.0
+    ripple = 1.0
 
     # Generate filter parameters for all harmonics
     filters_params = []
@@ -218,11 +219,11 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=2, additional=Non
 
         # Set proper filter band width, depending on the harmonic number (first ones are wider)
         if i == 0:
-            band_har = 7.5
+            band_har = 10.0
         elif i == 1:
-            band_har = 6.0
+            band_har = 7.5
         else:
-            band_har = 4.0
+            band_har = 5.0
 
         filters_params.append([sps, f_har, band_har, ripple, filter_order, filter_type])
 
@@ -261,9 +262,30 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=2, additional=Non
         ##############################
 
 
-
-
     return filtered_data
+
+
+def movingAverage(arr, n=3):
+    """ Perform a moving average on an array with the window size n.
+
+    Arguments:
+        arr: [ndarray] Numpy array of values.
+
+    Keyword arguments:
+        n: [int] Averaging window.
+
+    Return:
+        [ndarray] Averaged array. The size of the array is always by n-1 smaller than the input array.
+
+    """
+
+    ret = np.cumsum(arr, dtype=float)
+
+    ret[n:] = ret[n:] - ret[:-n]
+
+    return ret[n - 1:]/n
+
+
 
 
 def fitSine(time_arr, signal_arr, guess_freq=None):
@@ -381,14 +403,29 @@ if __name__ == "__main__":
     plt.show()
 
 
-    # Filter the light pollution
-    mains_freq = 60.0 # Hz
-    filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0)])
+    # Plot power spectral density
+    plt.psd(rdm.intensity, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
+    plt.show()
 
-    # Apply a broad lowpass and a highpass filter
-    bandpass_low = 1.0 # Hz
-    bandpass_high = mains_freq
-    filtered_data = filterBandpass(filtered_data, sps, bandpass_low, bandpass_high, order=3)
+
+    # # Filter the light pollution
+    # mains_freq = 60.0 # Hz
+    # filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0)], lowpass=False)
+
+
+    # # Apply a moving average
+    # window_size = 3
+    # filtered_data = movingAverage(rdm.intensity, n=window_size)
+    # time_relative = time_relative[:len(filtered_data)]
+    # filtered_data = filtered_data[::window_size]
+    # time_relative = time_relative[::window_size]
+    # sps = sps/window_size
+
+
+    # # Apply a broad lowpass and a highpass filter
+    # bandpass_low = 5.0 # Hz
+    # bandpass_high = mains_freq
+    # filtered_data = filterBandpass(filtered_data, sps, bandpass_low, bandpass_high, order=3)
 
     print(filtered_data)
 
@@ -410,6 +447,11 @@ if __name__ == "__main__":
     plt.xlabel('Time (s)')
     plt.ylabel('Frequency (Hz)')
 
+    plt.show()
+
+
+    # Plot power spectral density
+    plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
     plt.show()
 
 
