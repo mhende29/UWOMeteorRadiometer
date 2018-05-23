@@ -38,6 +38,8 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include "wrapper.h"
+
 //CS    -----   SPICS  
 //DIN   -----   MOSI
 //DOUT  -----   MISO
@@ -173,7 +175,7 @@ void Init_Single_Channel(uint8_t channel);
 uint8_t getgain(double givengain);
 void savedat(rdm *data,const char *path);
 int Runtime(double time);
-
+int ADC_Stop(void);
 
 /*
 *********************************************************************************************************
@@ -920,6 +922,22 @@ int Runtime(double time)
 
 /*
 *********************************************************************************************************
+*	name: ADC_Stop
+*	function: Closes the spi protocol to end communications with the ADC
+*	parameter: NULL
+*	The return value: 0 to end program
+*********************************************************************************************************
+*/
+
+int ADC_Stop(void)
+{
+    bcm2835_spi_end();
+    bcm2835_close();
+    return 0;
+}
+
+/*
+*********************************************************************************************************
 *	Name: main
 *	Description:  
 *	Arguments: NULL
@@ -1071,9 +1089,7 @@ int  main()
         }
     }
 
-    bcm2835_spi_end();
-    bcm2835_close();
-    return 0;
+    ADC_Stop();
 }
 
 // printf("%lld\n",(long long)rad_data.checksum); // How to print long numbers
