@@ -1,0 +1,6 @@
+sudo apt-get install python3-opengl
+sudo apt-get install python3-pyqt5
+sudo apt-get install python3-wxgtk3.0*
+sudo pip3 install numpy --upgrade
+sudo pip3 install scipy
+sudo pip3 install vispy
