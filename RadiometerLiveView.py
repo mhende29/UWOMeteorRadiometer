@@ -32,17 +32,19 @@ sps = 3750
 gain = 1
 mode = 0
 
+DATA_MIN = 0
+DATA_MAX = 2**23 - 1
+data_min=1
+data_max=-1
+height=0
+
 ads1256.init(gain,sps,mode)
 ads1256.init_channel(channel)
 
 ##############################################################################################################
 
-# Various signal amplitudes.
-amplitudes = .1 + .2 * np.random.rand(m, 1).astype(np.float32)
-
 # Generate the signals as a (m, n) array.
-y = amplitudes * np.zeros((m, n)).astype(np.float32)
-
+y = np.zeros((m, n)).astype(np.float32)
 # Color of each vertex (TODO: make it more efficient by using a GLSL-based
 # color map and the index).
 color = np.repeat(np.random.uniform(size=(m, 3), low=.5, high=.9),
@@ -151,6 +153,9 @@ class Canvas(app.Canvas):
         
         self.hold_plot = False
         
+        self.autoscale = False
+        self.afirstpress = False
+        
         self.show()
 
     def on_resize(self, event):
@@ -165,7 +170,7 @@ class Canvas(app.Canvas):
         self.update()
         
     def on_key_press(self, event):
-        #modifiers = [key.name for key in event.modifiers]
+        # modifiers = [key.name for key in event.modifiers]
         
         # Hold the plot if Space is pressed    
         if event.key.name == 'Space':
@@ -177,8 +182,29 @@ class Canvas(app.Canvas):
             else:
                 print('Unpaused!')
         
-        #~ print('Key pressed - text: %r, key: %s, modifiers: %r' % (
-            #~ event.text, event.key.name, modifiers))
+        if event.key.name == 'A':
+            self.autoscale = not self.autoscale
+            
+            if self.autoscale:
+                print('Autoscale enabled!')
+                scale_x, scale_y = self.program['u_scale']
+                
+                if((np.amax(y)-np.amin(y))>0.005):
+                    self.program['a_position'] = y - (np.amax(y) + np.amin(y))/2.0
+                    scale_x_new, scale_y_new = (scale_x,(2.0/(np.amax(y)-np.amin(y))))
+                    self.program['u_scale'] = (max(1, scale_x_new), max(1, scale_y_new))
+                    self.update()
+                else:
+                    pass
+                
+            else:
+                print('Autoscale Disabled!')
+                scale_x, scale_y = self.program['u_scale']
+                scale_x_new, scale_y_new = (scale_x,1)
+                self.program['u_scale'] = (max(1, scale_x_new), max(1, scale_y_new))
+                self.update()
+        # print('Key pressed - text: %r, key: %s, modifiers: %r' % (
+        #     event.text, event.key.name, modifiers))
 
     def on_key_release(self, event):
         pass
@@ -187,20 +213,32 @@ class Canvas(app.Canvas):
     def on_timer(self, event):
         """Add some data at the end of each signal (real-time signals)."""
         k = 1
-        
-        data_min = 0
-        data_max = 2**23 - 1
             
         y[:, :-k] = y[:, k:]
-        
         data_chunk = ads1256.read_channel(channel)
     
         # Scale data to -1 to 1 range
-        data_chunk = data_chunk/(data_max/2.0) - 1
-         
+        data_chunk = data_chunk/(DATA_MAX/2.0) - 1
+        
+        data_min = np.amin(y)
+        data_max = np.amax(y)
+        
         y[:, -k:] = data_chunk
-    
-        if not self.hold_plot:
+        
+        if self.autoscale and (not self.hold_plot) and ((data_max - data_min)>0.005):
+            
+            self.program['a_position'] = y - (data_max + data_min)/2.0
+            
+            scale_x, scale_y = self.program['u_scale']
+            scale_x_new, scale_y_new = (scale_x,(2.0/(np.amax(y)-np.amin(y))))
+            self.program['u_scale'] = (max(1, scale_x_new), max(1, scale_y_new))
+            
+            self.update()
+        elif (not self.hold_plot or ((data_max - data_min)<0.005)):
+            scale_x, scale_y = self.program['u_scale']
+            scale_x_new, scale_y_new = (scale_x,1)
+            self.program['u_scale'] = (max(1, scale_x_new), max(1, scale_y_new))
+            
             self.program['a_position'].set_data(y.ravel().astype(np.float32))
             self.update()
 
