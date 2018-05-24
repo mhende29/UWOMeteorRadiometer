@@ -2,6 +2,8 @@ sudo apt-get install -y python3-opengl
 sudo apt-get install -y python3-pyqt5
 sudo apt-get install -y python3-wxgtk3.0*
 sudo apt-get install -y python3-pyside
+sudo apt-get install -y liblapack*
+sudo apt-get install libatlas-base-dev
 sudo pip3 install numpy --upgrade
 sudo pip3 install scipy
 sudo pip3 install vispy
