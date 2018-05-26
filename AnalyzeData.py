@@ -3,11 +3,13 @@
 from __future__ import print_function, division, absolute_import
 
 import argparse
+import sys
 import os
 
 import numpy as np
 import scipy.signal
 import scipy.optimize
+import pyswarm
 
 
 DATA_SIZE = 2**20
@@ -288,49 +290,196 @@ def movingAverage(arr, n=3):
 
 
 
-def fitSine(time_arr, signal_arr, guess_freq=None):
-    """ Fit a sine to the given data. The sine will be fitted to the frequency with the highest amplitude. """
+def sine(t, a, f, phi, c):
+    """ A sine function. """
 
-    if guess_freq is None:
+    # Force positive amplitudes
+    a = abs(a)
 
-        # Perform FFT, assume uniform spacing
-        ff = np.fft.fftfreq(len(time_arr), (time_arr[1] - time_arr[0]))
-        Fyy = np.abs(np.fft.fft(signal_arr))
+    # Force positive phases
+    phi = phi%(2*np.pi)
 
-        # Guess the frequency (excluding the zero frequency "peak", which is related to offset)
-        guess_freq = np.abs(ff[np.argmax(Fyy[1:]) + 1])
-
-    # Guess the amplitude and the offset
-    guess_amp = np.std(signal_arr)*2.**0.5
-    print(guess_amp)
-    guess_offset = np.mean(signal_arr)
-
-    guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset])
-
-    def sinfunc(t, A, w, phi, c):  
-        return A * np.sin(w*t + phi) + c
+    return a*np.sin(2*np.pi*f*t + phi) + c
 
 
-    plt.plot(time_arr, signal_arr)
-    plt.plot(time_arr, sinfunc(time_arr, *guess))
+
+
+def fitSineComponents(time_data, signal_data, mains_freq, additional=None, fit_repeats=3):
+
+
+    if additional is None:
+        additional = []
+
+
+    # List of all sine fits
+    sine_fits = []
+
+    # Estimate initial parameters for the 0th harmonic
+    a0 = np.std(signal_data)
+    c0 = np.median(signal_data)
+    f0 = mains_freq
+    p0 = [a0, f0, 0, c0]
+
+
+    signal_data_filtered = np.copy(signal_data)
+
+    # Fit several sines with the main frequency
+    for k in range(fit_repeats):
+
+        # Fit the main harmonic
+        popt, _ = scipy.optimize.curve_fit(sine, time_data, signal_data_filtered, p0=p0)
+
+        # Make sure the amplitude is positive and the phase is inside (0, 2pi)
+        a, f, phi, c = popt
+        popt = [abs(a), f, phi%(2*np.pi), c]
+
+        sine_fits.append(popt)
+
+        print(f0, popt)
+
+        # Remove the main harmonic
+        signal_data_filtered = signal_data_filtered - sine(time_data, *popt)
+
+    sps = len(signal_data)/(time_data[-1] - time_data[0])
+    plt.specgram(signal_data, Fs=sps, NFFT=1024)
     plt.show()
 
-    # Fit the sine
-    popt, pcov = scipy.optimize.curve_fit(sinfunc, time_arr, signal_arr, p0=guess)
 
-    A, w, phi, c = popt
+    # plt.plot(time_data, signal_data)
+    # plt.plot(time_data, sine(time_data, *popt))
+    # plt.show()
 
-    f = w/(2.*np.pi)
 
-    fitfunc = lambda t: A * np.sin(w*t + phi) + c
 
-    return {"amp": A, "omega": w, "phase": phi, "offset": c, "freq": f, "period": 1./f, "fitfunc": fitfunc, \
-        "maxcov": np.max(pcov), "rawres": (guess,popt,pcov)}
+    # Generate a list of frequencies for filtering
+    freqs_filter = []
+    for i in range(1, int((sps/2)/mains_freq)):
+
+        # Compute the current harmonic frequency
+        f_har = mains_freq*(i + 1)
+
+        # Estimate the harmonic amplitude
+        amp = a0/(i + 1)
+
+        freqs_filter.append([f_har, amp])
+
+
+    # Add the additional frequencies, if any
+    freqs_filter += zip(additional, len(additional)*[a0])
+
+
+    # Go through all frequencies, fit the sines and remove them
+    for f_har, a0 in freqs_filter:
+
+        # Fit several sines for each frequency
+        for k in range(fit_repeats):
+
+            p0 = [a0, f_har, 0, 0]
+
+            # Fit the new harmonic
+            popt, _ = scipy.optimize.curve_fit(sine, time_data, signal_data_filtered, p0=p0, maxfev=20000)
+
+            # Make sure the amplitude is positive and the phase is inside (0, 2pi)
+            a, f, phi, c = popt
+            popt = [abs(a), f, phi%(2*np.pi), c]
+
+            sine_fits.append(popt)
+
+            print(f_har, popt)
+
+            # # Plot fitted sine
+            # plt.plot(time_data, signal_data_filtered)
+            # plt.plot(time_data, sine(time_data, *popt))
+            # plt.show()
+
+            # Remove the harmonic from signal
+            signal_data_filtered = signal_data_filtered - sine(time_data, *popt)
+
+
+    plt.plot(time_data, signal_data_filtered)
+    plt.show()
+
+    plt.specgram(signal_data_filtered, Fs=sps, NFFT=1024)
+    plt.show()
+
+    return sine_fits
+
+
+
+
+def slidingFrequencySines(params, t, sine_fits):
+
+    #f0, f1, f2, f3, p0, p1, p2, p3 = params
+    f0, f1, f2, f3 = params
+
+    sine_values = np.zeros_like(t)
+
+    # Compute values of the sines from given fits
+    for popt in sine_fits:
+
+        a, f, phi, c = popt
+
+        # Compute the value of the sliding frequency
+        f = f + f0 + f1*t + f2*t**2 + f3*t**3
+
+        # Compute the value of the sliding phase
+        #phi = phi + p0 + p1*t + p2*t**2 + p3*t**3
+
+        sine_values += sine(t, a, f, phi, c)
+
+    return sine_values
+
+
+
+def slidingFrequencySinesResiduals(params, t, signal_data, sine_fits):
+
+    return signal_data - slidingFrequencySines(params, t, sine_fits)
+
+
+
+
+
+
+def fitSlidingFrequency(time_data, signal_data, sine_fits):
+
+
+    p0 = [0, 0, 0, 0]
+
+    # Fit sliding frequency and phase
+    #res = scipy.optimize.least_squares(slidingFrequencySinesResiduals, p0, args=(time_data, signal_data, sine_fits))
+
+    bounds = [
+        (-0.01, 0.01),
+        (-0.01, 0.01),
+        (-0.01, 0.01),
+        (-0.01, 0.01),
+        ]
+
+    # Extract lower and upper bounds
+    lower_bounds = [bound[0] for bound in bounds]
+    upper_bounds = [bound[1] for bound in bounds]
+
+    x, fopt = pyswarm.pso(lambda *args: np.sum(slidingFrequencySinesResiduals(*args)**2), lower_bounds, 
+        upper_bounds, args=(time_data, signal_data, sine_fits), maxiter=2000, swarmsize=1000,\
+            debug=True)
+
+    print(x)
+
+    return x
 
 
 
 if __name__ == "__main__":
     
+
+    ### CONFIG
+
+    mains_freq = 60.0 # Hz
+
+    ###
+
+
+
     import matplotlib.pyplot as plt
     
     # Set up input arguments
@@ -389,6 +538,51 @@ if __name__ == "__main__":
     # # Plot raw data
     # plt.plot(time_relative, rdm.intensity)
     # plt.show()
+
+
+
+    # # ### TEST 
+
+    # # It seems that the 1000 points works best, fits on more points start to break down
+    # data_min = 577000
+    # data_max = 578000
+
+    # # Fit harmonics of the mains frequency
+    # sine_fits = fitSineComponents(time_relative[data_min:data_max], rdm.intensity[data_min:data_max], mains_freq, additional=[60])
+
+
+    # # Take out the fitted sines, except the static offset
+    # signal_data_filtered = np.copy(rdm.intensity[data_min:data_max]).astype(np.float64)
+    # for popt in sine_fits:
+    #     popt[-1] = 0
+    #     signal_data_filtered -= sine(time_relative[data_min:data_max], *popt)
+
+    # # # Apply the fitted sine on a larger chunk of data
+    # # data_min = 11000
+    # # data_max = 20000
+
+
+    # # # # Fit the sliding frequency and phase
+    # # # sliding_popt = fitSlidingFrequency(time_relative[data_min:data_max], rdm.intensity[data_min:data_max], sine_fits)
+
+    # # #signal_data_filtered = np.copy(rdm.intensity[data_min:data_max]).astype(np.float64)
+    # # signal_data_filtered = slidingFrequencySinesResiduals(sliding_popt, time_relative[data_min:data_max], \
+    # #     rdm.intensity[data_min:data_max], sine_fits)
+
+
+    # plt.specgram(signal_data_filtered, Fs=sps, NFFT=1024)
+    # plt.show()
+
+    # plt.psd(signal_data_filtered, Fs=sps, NFFT=1024)
+    # plt.show()
+
+    # plt.plot(time_relative[data_min:data_max], signal_data_filtered)
+    # plt.ylim([0, 2**23])
+    # plt.show()
+
+    # sys.exit()
+
+    # ####
     
 
     # Plot the spectrogram
@@ -408,9 +602,8 @@ if __name__ == "__main__":
     plt.show()
 
 
-    # # Filter the light pollution
-    # mains_freq = 60.0 # Hz
-    # filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0)], lowpass=False)
+    # Filter the light pollution
+    filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0)], lowpass=False)
 
 
     # # Apply a moving average
