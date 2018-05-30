@@ -330,8 +330,10 @@ def fitSine(time_arr, signal_arr, guess_freq=None):
 
 
 if __name__ == "__main__":
-    
+        
+    import matplotlib
     import matplotlib.pyplot as plt
+
     
     # Set up input arguments
     arg_p = argparse.ArgumentParser(description="Analyzes radiometer files.")
@@ -408,9 +410,9 @@ if __name__ == "__main__":
     plt.show()
 
 
-    # # Filter the light pollution
-    # mains_freq = 60.0 # Hz
-    # filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0)], lowpass=False)
+    # Filter the light pollution
+    mains_freq = 60.0 # Hz
+    filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0)], lowpass=False)
 
 
     # # Apply a moving average

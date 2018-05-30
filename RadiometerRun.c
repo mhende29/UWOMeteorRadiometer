@@ -30,6 +30,7 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 
 #include <bcm2835.h>  
 #include <stdio.h>
+#include <stdlib.h>
 #include <time.h>
 #include <unistd.h>
 #include <string.h>
@@ -38,7 +39,8 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 #include <fcntl.h>
 #include <sys/types.h>
 #include <sys/stat.h>
-#include "wrapper.h"
+#include <pthread.h>
+//#include "wrapper.h"
 
 //CS    -----   SPICS  
 //DIN   -----   MOSI
@@ -71,6 +73,16 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 //Data size is 2^20 which represents approximately 500 seconds worth of data samples
 #define DATA_SIZE 1048576
 
+// Define the path to save the data as a global constant
+const char path[] = "//home//pi//RadiometerData//";
+
+// Define global flags controlling when data is ready to be saved and which struct should be saved
+unsigned char radflag = 0;
+unsigned char data_ready = 0;
+
+// Define a mutual exclusion object for the data_ready variable
+// Lock and unlock this variable to control when it can be changed
+pthread_mutex_t data_ready_mutex;
 
 /* Defining Boolean Types  */
 typedef enum {FALSE = 0, TRUE = !FALSE} bool;
@@ -150,7 +162,7 @@ enum
 	CMD_RESET   = 0xFE, // Reset to Power-Up Values .............. 1111   1110 (FEh)
 };
 
-rdm  rad_data,config;
+rdm  *gooddata,*rad_data,config,data1,data2;
 ADS1256_VAR_T g_tADS1256;
 
 void  bsp_DelayUS(uint64_t micros);
@@ -174,6 +186,7 @@ int32_t Read_Single_Channel(uint8_t channel);
 void Init_Single_Channel(uint8_t channel);
 uint8_t getgain(double givengain);
 void savedat(rdm *data,const char *path);
+void* thread1(void);
 int Runtime(double time);
 int ADC_Stop(void);
 
@@ -872,11 +885,27 @@ void savedat(rdm *data, const char *path)
     FILE *fp;
     fp = fopen(buf, "wb");
     
+    // Error message if file wasn't written properly
     if(fwrite(data, sizeof(*data), 1, fp) != 1){
         printf("Error while writing file!");
     }
     
+    // Close the file to complete the save
     fclose(fp);
+    
+    // Gives a file timestamp
+    if(jcal1.tm_mday != jcal2.tm_mday){
+        // Print file saved with the timerange it recorded over
+        printf("File saved with entries starting from %02d:%02d:%02d on %02d/%02d/%02d and ending at %02d:%02d:%02d on %02d/%02d/%02d\n\n",
+        jcal1.tm_hour, jcal1.tm_min, jcal1.tm_sec, jcal1.tm_mday, jcal1.tm_mon+1, jcal1.tm_year+1900, 
+        jcal2.tm_hour, jcal2.tm_min, jcal2.tm_sec, jcal2.tm_mday, jcal2.tm_mon+1, jcal2.tm_year+1900);
+    }
+    else{
+        // Print file saved with the timerange it recorded over
+        printf("File saved with entries from %02d:%02d:%02d to %02d:%02d:%02d on %02d/%02d/%02d\n\n",
+        jcal1.tm_hour, jcal1.tm_min, jcal1.tm_sec, jcal2.tm_hour, jcal2.tm_min, jcal2.tm_sec, jcal2.tm_mday,
+        jcal2.tm_mon+1, jcal2.tm_year+1900);
+    }
     
     
 }
@@ -938,8 +967,67 @@ int ADC_Stop(void)
 
 /*
 *********************************************************************************************************
+*	Name: thread1
+*	Description: Intermittently checks if data is ready to be store and then stores it and clear it for next 
+*   use. 
+*	Arguments: NULL
+*	Return: NULL
+*********************************************************************************************************
+*/
+
+void* thread1(void)
+{
+    while(1){
+        // Sleep for 1 second to restrict CPU usage
+        sleep(1);
+        
+        // If data isn't ready, keep looping
+        if(data_ready != 0){
+            
+            // Checks to see which set of data is ready, then points to the address of the data that is ready
+            if(data_ready == 1){
+                gooddata = &data1;
+            }
+            else if (data_ready == 2){
+                gooddata = &data2;
+            }
+            
+            // Lock the variable to prevent the main thread from using data_ready while it's being changed
+            pthread_mutex_lock(&data_ready_mutex);
+                data_ready = 0;
+            pthread_mutex_unlock(&data_ready_mutex);
+                
+            // Assigning beginning and end times
+            gooddata->unix_start_s = gooddata->unix_s[0];
+            gooddata->unix_start_us = gooddata->unix_us[0];
+            gooddata->unix_end_s = gooddata->unix_s[DATA_SIZE-1];
+            gooddata->unix_end_us = gooddata->unix_us[DATA_SIZE-1];
+        
+            // Set the number of samples read equal to the size of the while loop
+            gooddata->num_samples = DATA_SIZE;
+            
+            // Save the data by passing the address of the desired structure and its path (defined at the top 
+            // of the code)
+            savedat(gooddata, path);
+            
+            // Zero data1 or data2
+            *gooddata = (rdm){0};
+            
+            *gooddata = config;
+            
+            // Print recording new file
+            printf("Recording a new file\n");
+        }
+    }
+    // Clear thread memory
+    pthread_detach(pthread_self());
+    
+}
+
+/*
+*********************************************************************************************************
 *	Name: main
-*	Description:  
+*	Description: Records and saves radiometer data 
 *	Arguments: NULL
 *	Return:  NULL
 *********************************************************************************************************
@@ -947,14 +1035,17 @@ int ADC_Stop(void)
 
 int  main()
 {
-    
+    // Initialize a variable to store the current ADC value
   	int32_t adc = 0;
-    uint64_t cksum = 0;
+    // Initialize a counter for finite looping requirements
     uint32_t count = 0;
     
+    // Variable used to store the desired amount of loops
     int loops = 0;
+    // Loop counting variable
     int i = 0;
     
+    // Initialize the timing struct used to measure UNIX times
     struct timespec tp; 
     
     
@@ -1010,8 +1101,11 @@ int  main()
         .instrument_string = "Radiometer prototype.",
         
         };
-        
-        
+    
+    // Configure the two main data structures
+    data1 = config;
+    data2 = config;
+    
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     
     // Compute the number of files to record
@@ -1021,21 +1115,40 @@ int  main()
     Init_ADC(gain, sps, mode);
     Init_Single_Channel(channel);
 	
+    // Print recording new file
+    printf("Recording a new file\n");
+    
+    // Create the second thread. This thread always checks to see if data is ready to be saved
+    // Create an ID for the thread
+    pthread_t thread_id;
+    
+    // Create the new thread using the thread_id identifier, thread1 is a function treated as a new thread
+    pthread_create(&thread_id, NULL, thread1, NULL);
+    
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
+    //                                         BEGIN MAIN LOOP                                              //
+    //////////////////////////////////////////////////////////////////////////////////////////////////////////
     
     while(1){
         
-        printf("Recording a new file\n");
+        // Check to see which data structure we want to save to and point to it
+        if(radflag == 0){
+            // Point to the first data structure
+            rad_data = &data1;
+        }
+        else{
+            // Point to the second data structure
+            rad_data = &data2;
+        }
         
-        // Reset data structure
-        rad_data = config;
-        
+        // Gather samples
         while(count < DATA_SIZE){
             
-            //~ // TEST!!!
-            //~ // Read only first 2k samples
-            //~ if(count == 2000){
-                //~ count = DATA_SIZE - 1;
-            //~ }
+            // TEST!!!
+            // Read only first 2k samples
+            //if(count == 200000){
+                //count = DATA_SIZE - 1;
+            //}
             
             // Acquire the current 24 bit adc value 
             adc = Read_Single_Channel(channel);
@@ -1044,38 +1157,45 @@ int  main()
             clock_gettime(CLOCK_REALTIME, &tp);
         
             // Update our checksum
-            cksum += adc;
+            rad_data->checksum += adc;
         
             // Record the current intensity reading
-            rad_data.intensity[count] = adc;
+            rad_data->intensity[count] = adc;
         
             // Record the current unix time
-            rad_data.unix_s[count] = tp.tv_sec;
+            rad_data->unix_s[count] = tp.tv_sec;
         
             // Record the current microsecond component of the unix time
-            rad_data.unix_us[count] = tp.tv_nsec/1000;
+            rad_data->unix_us[count] = tp.tv_nsec/1000;
         
             // Update the loop
             count++;
         }   
         
-        // Assigning beginning and end times
-        rad_data.unix_start_s = rad_data.unix_s[0];
-        rad_data.unix_start_us = rad_data.unix_us[0];
-        rad_data.unix_end_s = rad_data.unix_s[DATA_SIZE-1];
-        rad_data.unix_end_us = rad_data.unix_us[DATA_SIZE-1];
-        
-        // Set the number of samples read equal to the size of the while loop
-        rad_data.num_samples = DATA_SIZE;
-        
-        // Store the checksum value in the struct
-        rad_data.checksum = cksum;
-        
         // Save data to disk
-        savedat(&rad_data, "//home//pi//RadiometerData//");
+        // savedat(&rad_data, "//home//pi//RadiometerData//");
         
-        // Reset structure
-        rad_data=(rdm){0};
+        // Acknowledge data is ready, use 1 to identify if data1 is ready and 2 to identify data2 is ready
+        if(radflag==0){
+            
+            // Switch to the next data structure as well
+            radflag = 1;
+            
+            // Lock the variable to prevent thread 1 from using data_ready while it's being changed
+            pthread_mutex_lock(&data_ready_mutex);
+                data_ready = 1;
+            pthread_mutex_unlock(&data_ready_mutex);
+        }
+        else{
+            
+            // Switch to the next data structure as well
+            radflag = 0;
+            
+            // Lock the variable to prevent thread 1 from using data_ready while it's being changed
+            pthread_mutex_lock(&data_ready_mutex);
+                data_ready = 2;
+            pthread_mutex_unlock(&data_ready_mutex);
+        }
         
         // Reset loop counter
         count = 0;
@@ -1089,10 +1209,24 @@ int  main()
         }
     }
 
+    // Close the ADC
     ADC_Stop();
 }
+
+
+
+//////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+
+
+// Useful code snippets
 
 // printf("%lld\n",(long long)rad_data.checksum); // How to print long numbers
 //if(count==1000){
 //                count=DATA_SIZE-1;
 //            }
+
+//clock_t begin = clock();
+//clock_t end = clock();
+//double time_spent = (double)(end - begin) / CLOCKS_PER_SEC;
+//printf("%f\n",time_spent);
