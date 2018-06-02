@@ -98,6 +98,10 @@ def readRDM(file_name, checksum_check=False, read_data=True):
                     
                 else:
                     return rdm, False
+
+
+            # Skip all values where the UNIX time (seconds) is 0
+            rdm.time_s, rdm.time_us, rdm.intensity = table[:, rdm.time_s > 0]
                     
             
         return rdm, False
