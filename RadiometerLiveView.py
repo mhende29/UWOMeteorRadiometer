@@ -30,7 +30,7 @@ n = 1000
 channel = 0
 sps = 3750
 gain = 1
-mode = 0
+mode = 1
 
 DATA_MIN = 0
 DATA_MAX = 2**23 - 1
@@ -216,7 +216,7 @@ class Canvas(app.Canvas):
             
         y[:, :-k] = y[:, k:]
         data_chunk = ads1256.read_channel(channel)
-    
+        print(data_chunk)
         # Scale data to -1 to 1 range
         data_chunk = data_chunk/(DATA_MAX/2.0) - 1
         

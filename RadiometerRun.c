@@ -40,7 +40,8 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <pthread.h>
-//#include "wrapper.h"
+#include <signal.h>
+#include "wrapper.h"
 
 //CS    -----   SPICS  
 //DIN   -----   MOSI
@@ -74,11 +75,20 @@ RPI_V2_GPIO_P1_13->RPI_GPIO_P1_13
 #define DATA_SIZE 1048576
 
 // Define the path to save the data as a global constant
-const char path[] = "//home//pi//RadiometerData//";
+// const char path[] = "//home//pi//RadiometerData//CapturedData//";
+
+// Initialize a blank 128 character long string to hold the file path given by the python code
+char file_path[128] = "";
 
 // Define global flags controlling when data is ready to be saved and which struct should be saved
 unsigned char radflag = 0;
 unsigned char data_ready = 0;
+
+// Kill command used to softly kill the program
+unsigned char kill_flag = 0;
+
+// Variable used to say to program has completed its finite recording
+unsigned char done = 0;
 
 // Define a mutual exclusion object for the data_ready variable
 // Lock and unlock this variable to control when it can be changed
@@ -186,9 +196,11 @@ int32_t Read_Single_Channel(uint8_t channel);
 void Init_Single_Channel(uint8_t channel);
 uint8_t getgain(double givengain);
 void savedat(rdm *data,const char *path);
-void* thread1(void);
+int thread1(double duration, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path);
+void* thread2(void);
 int Runtime(double time);
 int ADC_Stop(void);
+void killProgram(void);
 
 /*
 *********************************************************************************************************
@@ -237,12 +249,9 @@ void bsp_InitADS1256(void)
 void ADS1256_StartScan(uint8_t _ucScanMode)
 {
 	g_tADS1256.ScanMode = _ucScanMode;
-	
-	{
-		uint8_t i;
 
-		g_tADS1256.Channel = 0;
-	}
+    g_tADS1256.Channel = 0;
+	
 
 }
 
@@ -677,8 +686,8 @@ void Init_ADC(double _gain,double _sps,uint8_t _mode)
     bcm2835_gpio_fsel(DRDY, BCM2835_GPIO_FSEL_INPT);
     bcm2835_gpio_set_pud(DRDY, BCM2835_GPIO_PUD_UP);
     
-    uint8_t gain=getgain(_gain);
-    uint8_t sps=samplerate(_sps);
+    uint8_t gain = getgain(_gain);
+    uint8_t sps = samplerate(_sps);
     
     ADS1256_CfgADC(gain, sps);
     ADS1256_StartScan(_mode);
@@ -922,7 +931,16 @@ void Init_Single_Channel(uint8_t channel)
 {
     // Record the current channel being sampled
     g_tADS1256.Channel = channel;
-    ADS1256_SetChannal(channel);	/*Switch channel mode */
+    
+    if(g_tADS1256.ScanMode == 0){
+        // Uses single channel to compare channel 0 to ground
+        ADS1256_SetChannal(channel);	/*Switch channel mode */
+    }
+    else{
+        // Uses differential channel to compare channel 0 to channel 1
+        ADS1256_SetDiffChannal(channel);	/*Switch channel mode */
+    }
+    
     bsp_DelayUS(5);
 }
 
@@ -968,73 +986,16 @@ int ADC_Stop(void)
 /*
 *********************************************************************************************************
 *	Name: thread1
-*	Description: Intermittently checks if data is ready to be store and then stores it and clear it for next 
+*	Description: Runs the main ADC code 
 *   use. 
 *	Arguments: NULL
 *	Return: NULL
 *********************************************************************************************************
 */
 
-void* thread1(void)
+int thread1(double duration, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path)
 {
-    while(1){
-        // Sleep for 1 second to restrict CPU usage
-        sleep(1);
-        
-        // If data isn't ready, keep looping
-        if(data_ready != 0){
-            
-            // Checks to see which set of data is ready, then points to the address of the data that is ready
-            if(data_ready == 1){
-                gooddata = &data1;
-            }
-            else if (data_ready == 2){
-                gooddata = &data2;
-            }
-            
-            // Lock the variable to prevent the main thread from using data_ready while it's being changed
-            pthread_mutex_lock(&data_ready_mutex);
-                data_ready = 0;
-            pthread_mutex_unlock(&data_ready_mutex);
-                
-            // Assigning beginning and end times
-            gooddata->unix_start_s = gooddata->unix_s[0];
-            gooddata->unix_start_us = gooddata->unix_us[0];
-            gooddata->unix_end_s = gooddata->unix_s[DATA_SIZE-1];
-            gooddata->unix_end_us = gooddata->unix_us[DATA_SIZE-1];
-        
-            // Set the number of samples read equal to the size of the while loop
-            gooddata->num_samples = DATA_SIZE;
-            
-            // Save the data by passing the address of the desired structure and its path (defined at the top 
-            // of the code)
-            savedat(gooddata, path);
-            
-            // Zero data1 or data2
-            *gooddata = (rdm){0};
-            
-            *gooddata = config;
-            
-            // Print recording new file
-            printf("Recording a new file\n");
-        }
-    }
-    // Clear thread memory
-    pthread_detach(pthread_self());
     
-}
-
-/*
-*********************************************************************************************************
-*	Name: main
-*	Description: Records and saves radiometer data 
-*	Arguments: NULL
-*	Return:  NULL
-*********************************************************************************************************
-*/
-
-int  main()
-{
     // Initialize a variable to store the current ADC value
   	int32_t adc = 0;
     // Initialize a counter for finite looping requirements
@@ -1048,15 +1009,11 @@ int  main()
     // Initialize the timing struct used to measure UNIX times
     struct timespec tp; 
     
-    
     //// Configuration /////
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     
-    // Number of hours to run, -1 means run forever
-    double run_hrs = -1;
-    
     //Mode is either 0 for single input or 1 for differential
-    uint8_t mode = 0;
+    uint8_t mode = 1;
     
     //Gains are 1,2,4,8,16,32 and 64
     double gain = 1; 
@@ -1070,7 +1027,7 @@ int  main()
     uint8_t single_channel = 0; 
 
     // Channel desired to be read
-    uint8_t channel = 0;
+    uint8_t adc_channel = 0;
     
     // Define a configuration for the radiometer
     config = (rdm){
@@ -1081,39 +1038,61 @@ int  main()
         // File format version, i.e. how the data is structured
         .file_format_version = 1,
         
-        // Station code is comprised of the ISO-standard 2 letter country code followed by the alphanumeric 
-        // code of the station in the given country
-        .station_code = "CA0001",
+        // Sets all elements of the station_code string to 0
+        .station_code = "",
         
-        // The alphanumeric code of the radiometric channel
-        .channel = 'A',
+        // Sets all elements of the channel string to 0
+        .channel = "",
         
         // The latitude of this station
-        .station_latitude = 43.19279,
+        .station_latitude = latitude,
         
         // The longitude of this station
-        .station_longitude = -81.31566,
+        .station_longitude = longitude,
         
         // The elevation above sea level of this station
-        .station_elevation = 324.0,
+        .station_elevation = elevation,
         
-        // Description of the instrument
-        .instrument_string = "Radiometer prototype.",
+        // Sets all elements of the instrument_string string to 0
+        .instrument_string = "",
         
         };
+    
+    // Copy string configuration parameters gathered from python
+    
+    // Station code is comprised of the ISO-standard 2 letter country code followed by the alphanumeric 
+    // code of the station in the given country
+    memcpy(config.station_code,station_code,6);
+    
+    // The alphanumeric code of the radiometric channel
+    memcpy(config.channel,channel,1);
+    
+    // Description of the instrument
+    int instrument_string_length = strlen(instrument_string);
+    memcpy(config.instrument_string,instrument_string,instrument_string_length);
+    
+    // Set the file path
+    int path_size = strlen(path);
+    memcpy(file_path,path,path_size);
     
     // Configure the two main data structures
     data1 = config;
     data2 = config;
     
+    // Configures ctrl+c, when ctrl c is pressed activate the killProgram function, which softly kills 
+    // the program
+    struct sigaction act;
+    act.sa_handler = killProgram;
+    sigaction(SIGINT, &act, NULL);
+    
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     
     // Compute the number of files to record
-    loops = Runtime(run_hrs);
+    loops = Runtime(duration);
     
     // Init ADC
     Init_ADC(gain, sps, mode);
-    Init_Single_Channel(channel);
+    Init_Single_Channel(adc_channel);
 	
     // Print recording new file
     printf("Recording a new file\n");
@@ -1122,8 +1101,8 @@ int  main()
     // Create an ID for the thread
     pthread_t thread_id;
     
-    // Create the new thread using the thread_id identifier, thread1 is a function treated as a new thread
-    pthread_create(&thread_id, NULL, thread1, NULL);
+    // Create the new thread using the thread_id identifier, thread2 is a function treated as a new thread
+    pthread_create(&thread_id, NULL, thread2, NULL);
     
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     //                                         BEGIN MAIN LOOP                                              //
@@ -1146,8 +1125,8 @@ int  main()
             
             // TEST!!!
             // Read only first 2k samples
-            //if(count == 200000){
-                //count = DATA_SIZE - 1;
+            //if(count == 20000){
+            //    count = DATA_SIZE - 1;
             //}
             
             // Acquire the current 24 bit adc value 
@@ -1170,6 +1149,10 @@ int  main()
         
             // Update the loop
             count++;
+            
+            if(kill_flag == 1){
+                goto end;
+            }
         }   
         
         // Save data to disk
@@ -1204,13 +1187,114 @@ int  main()
         if(loops != -1){
             i++;
             if(i == loops){
+                done = 1;
                 break;
             }
         }
     }
-
+    end:
     // Close the ADC
     ADC_Stop();
+    
+    // Not sure if needed
+    //pthread_join(thread_id, NULL);
+    
+    // Sleep for one second to allow the second thread to save the last bit of data
+    sleep(1);
+    
+    // 0 for clean exit, 1 for forced exit (forced using ctrl+c)
+    return kill_flag;
+}
+
+/*
+*********************************************************************************************************
+*	Name: thread2
+*	Description: Intermittently checks if data is ready to be store and then stores it and clear it for next 
+*   use. 
+*	Arguments: NULL
+*	Return: NULL
+*********************************************************************************************************
+*/
+
+void* thread2(void)
+{
+    while(kill_flag == 0){
+        // Sleep for 1 second to restrict CPU usage
+        sleep(1);
+        
+        // If data isn't ready, keep looping
+        if(data_ready != 0){
+            
+            // Checks to see which set of data is ready, then points to the address of the data that is ready
+            if(data_ready == 1){
+                gooddata = &data1;
+            }
+            else if (data_ready == 2){
+                gooddata = &data2;
+            }
+            
+            // Lock the variable to prevent the main thread from using data_ready while it's being changed
+            pthread_mutex_lock(&data_ready_mutex);
+                data_ready = 0;
+            pthread_mutex_unlock(&data_ready_mutex);
+                
+            // Assigning beginning and end times
+            gooddata->unix_start_s = gooddata->unix_s[0];
+            gooddata->unix_start_us = gooddata->unix_us[0];
+            gooddata->unix_end_s = gooddata->unix_s[DATA_SIZE-1];
+            gooddata->unix_end_us = gooddata->unix_us[DATA_SIZE-1];
+        
+            // Set the number of samples read equal to the size of the while loop
+            gooddata->num_samples = DATA_SIZE;
+            
+            // Save the data by passing the address of the desired structure and its path (defined at the top 
+            // of the code)
+            savedat(gooddata, file_path);
+            
+            // Zero data1 or data2
+            *gooddata = (rdm){0};
+            
+            *gooddata = config;
+            if(done != 1){
+                // Print recording new file
+                printf("Recording a new file\n");
+            }
+        }
+    }
+    // Clear thread memory
+    pthread_detach(pthread_self());
+    
+}
+
+/*
+*********************************************************************************************************
+*	Name: killProgram
+*	Description: Sets the kill flag to true 
+*	Arguments: NULL
+*	Return:  NULL
+*********************************************************************************************************
+*/
+
+void killProgram(void)
+{
+    kill_flag = 1;
+}
+
+/*
+*********************************************************************************************************
+*	Name: main
+*	Description: Records and saves radiometer data 
+*	Arguments: NULL
+*	Return:  NULL
+*********************************************************************************************************
+*/
+
+int  main()
+{
+    double duration = -1;
+    
+    
+    //thread1(double duration, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string)
 }
 
 

@@ -10,6 +10,8 @@ static PyObject *_Init_ADC(PyObject *self, PyObject *args);
 static PyObject *_Read_Single_Channel(PyObject *self, PyObject *args);
 static PyObject *_Init_Single_Channel(PyObject *self, PyObject *args);
 static PyObject *_ADC_Stop(PyObject *self, PyObject *args);
+static PyObject *_thread1(PyObject *self, PyObject *args);
+static PyObject *_kill_flag(PyObject *self, PyObject *args);
 
 /* Module specification */
 static PyMethodDef module_methods[] = {
@@ -18,6 +20,8 @@ static PyMethodDef module_methods[] = {
     {"read_channel", _Read_Single_Channel, METH_VARARGS, {"Reads a given channel"}},
     {"init_channel", _Init_Single_Channel, METH_VARARGS, {"Initializes a given channel"}},
     {"stop", _ADC_Stop, 0, {"Closes the ADC"}},
+    {"run", _thread1, METH_VARARGS, {"Runs the main program"}},
+    {"kill", _kill_flag, METH_VARARGS, {"Softly kills the program"}},
     {NULL, NULL, 0, NULL}
 };
 
@@ -44,13 +48,13 @@ PyMODINIT_FUNC PyInit_ads1256(void)
     return PyModule_Create(&initads1256);
 }
 
-
-
 static PyObject *_Init_ADC(PyObject *self, PyObject *args)
 {
     double gain, sps;
     unsigned char mode;
     PyObject *yerr_obj;
+    
+    printf("ERROR");
     
     /* Parse the input tuple */
     if (!PyArg_ParseTuple(args,"ddb",&gain,&sps,&mode,&yerr_obj))
@@ -99,4 +103,29 @@ static PyObject *_ADC_Stop(PyObject *self, PyObject *args)
     return ret;
 }
 
+static PyObject *_thread1(PyObject *self, PyObject *args)
+{
+    double duration, latitude, longitude, elevation;
+    char *stationcode, *instrumentstring, *stationchannel,*path;
+    int end;
+    
+    
+    PyObject *yerr_obj;
+    
+    /* Parse the input tuple */
+    if (!PyArg_ParseTuple(args,"dssdddss",&duration,&stationcode,&stationchannel,&latitude,&longitude,&elevation,&instrumentstring,&path,&yerr_obj))
+        return NULL;
+    
+    /* execute the code */ 
+    end = thread1(duration,stationcode,stationchannel,latitude,longitude,elevation,instrumentstring,path);
+    
+    return Py_BuildValue("i", end);
+}
 
+static PyObject *_kill_flag(PyObject *self, PyObject *args)
+{
+    /* execute the code */ 
+    killProgram();
+    
+    Py_RETURN_NONE;
+}
