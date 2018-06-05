@@ -4,6 +4,7 @@ from __future__ import print_function, division, absolute_import
 
 import argparse
 import os
+import datetime
 
 import numpy as np
 import scipy.signal
@@ -97,6 +98,10 @@ def readRDM(file_name, checksum_check=False, read_data=True):
                     
                 else:
                     return rdm, False
+
+
+            # Skip all values where the UNIX time (seconds) is 0
+            rdm.time_s, rdm.time_us, rdm.intensity = table[:, rdm.time_s > 0]
                     
             
         return rdm, False
@@ -208,7 +213,7 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=Non
     """
 
     filter_type = 'cheby1'
-    ripple = 1.0
+    ripple = 10.0
 
     # Generate filter parameters for all harmonics
     filters_params = []
@@ -217,25 +222,39 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=Non
         # Compute the current harmonic frequency
         f_har = mains_freq*(i + 1)
 
+        # If the lowpass filter is on, skip all frequencies above 5x the mains frequency
+        if lowpass:
+            if f_har > 5*mains_freq:
+                continue
+
         # Set proper filter band width, depending on the harmonic number (first ones are wider)
         if i == 0:
-            band_har = 10.0
-        elif i == 1:
             band_har = 7.5
+        elif i == 1:
+            band_har = 5.5
         else:
-            band_har = 5.0
+            band_har = 3.5
 
         filters_params.append([sps, f_har, band_har, ripple, filter_order, filter_type])
 
 
     if additional is not None:
         for freq, band in additional:
-            filters_params.append([sps, freq, band, ripple, filter_order, filter_type])
 
+            # If the lowpass filter is on, skip all frequencies above 5x the mains frequency
+            if lowpass:
+                if freq > 5*mains_freq:
+                    continue
+
+            filters_params.append([sps, freq, band, ripple, filter_order, filter_type])
 
     filtered_data = np.copy(data)
 
-    # Filter data
+    # Detrend the data
+    filtered_data = scipy.signal.detrend(filtered_data)
+
+
+    # Filter data using notch filters
     for filt_param in filters_params:
 
         print(filt_param)
@@ -254,7 +273,7 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=Non
 
         # Init the lowpass filter
         Wn = mains_freq/(sps/2.0)
-        b, a = scipy.signal.butter(3, Wn)
+        b, a = scipy.signal.butter(6, Wn)
 
         # Filter the data
         filtered_data = scipy.signal.filtfilt(b, a, filtered_data)
@@ -288,44 +307,55 @@ def movingAverage(arr, n=3):
 
 
 
-def fitSine(time_arr, signal_arr, guess_freq=None):
-    """ Fit a sine to the given data. The sine will be fitted to the frequency with the highest amplitude. """
+def datestr2UnixTime(time_str, UT_corr=0.0):
+    """ Convert date and time to Unix time. 
+    Arguments:
+        time_str: [str]
 
-    if guess_freq is None:
+    Kwargs:
+        millisecond: [int] milliseconds (optional)
+        UT_corr: [float] UT correction in hours (difference from local time to UT)
+    
+    Return:
+        [float] Unix time
 
-        # Perform FFT, assume uniform spacing
-        ff = np.fft.fftfreq(len(time_arr), (time_arr[1] - time_arr[0]))
-        Fyy = np.abs(np.fft.fft(signal_arr))
+    """
 
-        # Guess the frequency (excluding the zero frequency "peak", which is related to offset)
-        guess_freq = np.abs(ff[np.argmax(Fyy[1:]) + 1])
+    # Convert the time string to datetime
+    dt = datetime.datetime.strptime(time_str, "%Y%m%d-%H%M%S.%f") - datetime.timedelta(hours=UT_corr)
 
-    # Guess the amplitude and the offset
-    guess_amp = np.std(signal_arr)*2.**0.5
-    print(guess_amp)
-    guess_offset = np.mean(signal_arr)
+    # UTC unix timestamp
+    unix_timestamp = (dt - datetime.datetime(1970, 1, 1)).total_seconds()
 
-    guess = np.array([guess_amp, 2.*np.pi*guess_freq, 0., guess_offset])
-
-    def sinfunc(t, A, w, phi, c):  
-        return A * np.sin(w*t + phi) + c
+    return unix_timestamp
 
 
-    plt.plot(time_arr, signal_arr)
-    plt.plot(time_arr, sinfunc(time_arr, *guess))
-    plt.show()
 
-    # Fit the sine
-    popt, pcov = scipy.optimize.curve_fit(sinfunc, time_arr, signal_arr, p0=guess)
 
-    A, w, phi, c = popt
+def sine(t, a, f, phi, c):
+    return a*np.sin(2*np.pi*f*t + phi) + c
 
-    f = w/(2.*np.pi)
 
-    fitfunc = lambda t: A * np.sin(w*t + phi) + c
 
-    return {"amp": A, "omega": w, "phase": phi, "offset": c, "freq": f, "period": 1./f, "fitfunc": fitfunc, \
-        "maxcov": np.max(pcov), "rawres": (guess,popt,pcov)}
+def fitSine(time_data, intensity_data, f0):
+    """ Fits a sine to the given data.
+
+    Arguments:
+        f0: [float] Initial guess of the frequency.
+
+    """ 
+
+    a0 = np.std(intensity_data)
+    phi0 = 0
+    c0 = np.mean(intensity_data)
+
+    # Initial guess
+    p0 = [a0, f0, phi0, c0]
+
+    popt, _ = scipy.optimize.curve_fit(sine, time_data, intensity_data, p0=p0)
+
+    return popt
+
 
 
 
@@ -338,6 +368,8 @@ if __name__ == "__main__":
     # Set up input arguments
     arg_p = argparse.ArgumentParser(description="Analyzes radiometer files.")
     arg_p.add_argument('rdm_file', type=str, help="Path to the .rdm file.")
+    arg_p.add_argument('-t', '--time', metavar='TIME', nargs='?', \
+        help='Time of the event in the YYYYMMDD-HHMMSS.ms format.', type=str, default=None)
     
     # Parse input arguments
     cml_args = arg_p.parse_args()
@@ -388,6 +420,39 @@ if __name__ == "__main__":
     file_name = file_name.replace('.rdm', '')
 
 
+    ### If the time of the event was given, cut +/-20 seconds around the event ###
+
+    if cml_args.time is not None:
+
+        delta_t = 20 # seconds
+
+        # Convert the event time string to UNIX time
+        unix_t = datestr2UnixTime(cml_args.time)
+
+        # Compute the first and the last time
+        unix_t_beg = unix_t - delta_t
+        unix_t_end = unix_t + delta_t
+
+        # Find indices to cut
+        beg_ind = np.abs(unix_times - unix_t_beg).argmin()
+        end_ind = np.abs(unix_times - unix_t_end).argmin()
+
+
+        if beg_ind == end_ind:
+            print('The given time is outside the time range of the file!')
+
+        else:
+
+            rdm.intensity = rdm.intensity[beg_ind:end_ind]
+            unix_times = rdm.intensity[beg_ind:end_ind]
+            time_relative = time_relative[beg_ind:end_ind]
+
+
+
+    ##########
+
+
+
     # # Plot raw data
     # plt.plot(time_relative, rdm.intensity)
     # plt.show()
@@ -412,12 +477,25 @@ if __name__ == "__main__":
 
     # Filter the light pollution
     mains_freq = 60.0 # Hz
-    filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(20, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0)], lowpass=False)
+    filtered_data = filterLP(rdm.intensity, sps, mains_freq, additional=[(160, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0), (40.0, 2.0), (20.0, 2.0)], lowpass=True)
+
+    # Skip the first 5% samples
+    beg_cut = int(len(time_relative)*0.05)
+    time_relative = time_relative[beg_cut:]
+    filtered_data = filtered_data[beg_cut:]
+    unix_times = unix_times[beg_cut:]
+
+    # Skip the last 1% samples
+    end_cut = len(time_relative) - int(len(time_relative)*0.01)
+    time_relative = time_relative[:end_cut]
+    filtered_data = filtered_data[:end_cut]
+    unix_times = unix_times[:end_cut]
+
 
 
     # # Apply a moving average
     # window_size = 3
-    # filtered_data = movingAverage(rdm.intensity, n=window_size)
+    # filtered_data = movingAverage(rdm.intensity.astype(np.float64), n=window_size)
     # time_relative = time_relative[:len(filtered_data)]
     # filtered_data = filtered_data[::window_size]
     # time_relative = time_relative[::window_size]
@@ -426,8 +504,8 @@ if __name__ == "__main__":
 
     # # Apply a broad lowpass and a highpass filter
     # bandpass_low = 5.0 # Hz
-    # bandpass_high = mains_freq
-    # filtered_data = filterBandpass(filtered_data, sps, bandpass_low, bandpass_high, order=3)
+    # bandpass_high = 60.0
+    # filtered_data = filterBandpass(rdm.intensity.astype(np.float64), sps, bandpass_low, bandpass_high, order=3)
 
     print(filtered_data)
 
