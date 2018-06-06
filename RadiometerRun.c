@@ -196,7 +196,7 @@ int32_t Read_Single_Channel(uint8_t channel);
 void Init_Single_Channel(uint8_t channel);
 uint8_t getgain(double givengain);
 void savedat(rdm *data,const char *path);
-int thread1(double duration, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path);
+int thread1(double duration, unsigned char mode, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path);
 void* thread2(void);
 int Runtime(double time);
 int ADC_Stop(void);
@@ -993,7 +993,7 @@ int ADC_Stop(void)
 *********************************************************************************************************
 */
 
-int thread1(double duration, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path)
+int thread1(double duration, unsigned char mode, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path)
 {
     
     // Initialize a variable to store the current ADC value
@@ -1013,7 +1013,7 @@ int thread1(double duration, char *station_code, char *channel, double latitude,
     //////////////////////////////////////////////////////////////////////////////////////////////////////////
     
     //Mode is either 0 for single input or 1 for differential
-    uint8_t mode = 1;
+    // uint8_t mode = 1;
     
     //Gains are 1,2,4,8,16,32 and 64
     double gain = 1; 

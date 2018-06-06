@@ -51,6 +51,7 @@ if __name__ == "__main__":
         path = config['Station']['Path']
         raw = config['Station']['RawData']
         zipped = config['Station']['StoredData']
+        mode = int(config['Station']['DifferentialMode'])
         
     else:
         
@@ -75,7 +76,8 @@ if __name__ == "__main__":
             ('InstrumentString', 'Your description'),
             ('Path','/home/pi/RadiometerData/'),
             ('RawData','CapturedData'),
-            ('StoredData','ArchivedData')
+            ('StoredData','ArchivedData'),
+            ('DifferentialMode','1')
         ))
         
         # Generate the file in the desired directory and close it
@@ -112,18 +114,15 @@ if __name__ == "__main__":
         duration = (float(cml_args.loops))/7.2
 
 
-    
-
-
 
     # If a duration was given in loops or hours, run for the desired length of time
     if (cml_args.duration or cml_args.loops):
         
         
-        stored_path = makeDirectory(station_code,channel, os.path.join(path, raw) + "/")
+        stored_path = makeDirectory(station_code, channel, os.path.join(path, raw) + "/")
         
         # ads1256.run returns 0 when its done recording
-        running = ads1256.run(duration,station_code,channel,latitude,longitude,elevation,instrument_string,stored_path)
+        running = ads1256.run(duration, mode, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
         
         # Compress all files saved
         source = stored_path.replace("//","/")[:-1]
@@ -153,10 +152,10 @@ if __name__ == "__main__":
                 # Wait until sunset
                 time.sleep(int(waiting_time.total_seconds()))
     
-            path = makeDirectory(station_code,channel, os.path.join(path, raw) + "/")
+            path = makeDirectory(station_code, channel, os.path.join(path, raw) + "/")
     
             # ads1256.run returns 0 when its done recording
-            running = ads1256.run(duration, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
+            running = ads1256.run(duration, mode, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
             
             # Compress all files saved
             source = stored_path.replace("//","/")[:-1]

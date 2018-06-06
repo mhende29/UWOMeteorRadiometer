@@ -108,16 +108,17 @@ static PyObject *_thread1(PyObject *self, PyObject *args)
     double duration, latitude, longitude, elevation;
     char *stationcode, *instrumentstring, *stationchannel,*path;
     int end;
+    unsigned char mode;
     
     
     PyObject *yerr_obj;
     
     /* Parse the input tuple */
-    if (!PyArg_ParseTuple(args,"dssdddss",&duration,&stationcode,&stationchannel,&latitude,&longitude,&elevation,&instrumentstring,&path,&yerr_obj))
+    if (!PyArg_ParseTuple(args,"dbssdddss",&duration,&mode,&stationcode,&stationchannel,&latitude,&longitude,&elevation,&instrumentstring,&path,&yerr_obj))
         return NULL;
     
     /* execute the code */ 
-    end = thread1(duration,stationcode,stationchannel,latitude,longitude,elevation,instrumentstring,path);
+    end = thread1(duration,mode,stationcode,stationchannel,latitude,longitude,elevation,instrumentstring,path);
     
     return Py_BuildValue("i", end);
 }
