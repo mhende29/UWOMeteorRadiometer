@@ -138,7 +138,7 @@ if __name__ == "__main__":
     else:
         while(1):
             
-            start_time,duration = captureDuration(latitude,longitude,elevation)
+            start_time, duration = captureDuration(latitude,longitude,elevation)
             # Convert duration to hours
             duration/=3600
             
@@ -149,8 +149,11 @@ if __name__ == "__main__":
                 time_now = datetime.datetime.utcnow()
                 waiting_time = start_time - time_now
                 
+                print("Recording will start on:", start_time, "UTC")
+                
                 # Wait until sunset
                 time.sleep(int(waiting_time.total_seconds()))
+                
     
             path = makeDirectory(station_code, channel, os.path.join(path, raw) + "/")
     
