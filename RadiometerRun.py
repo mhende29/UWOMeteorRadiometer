@@ -14,11 +14,11 @@ import sys
 import multiprocessing
 
 from threading import Event
-from collections import OrderedDict
 from CaptureDuration import captureDuration
 from DeleteOldObservations import deleteOldObservations
 from Misc import archiveDir
 from UploadManager import UploadManager
+from GetRDMConfig import RDMConfig, readConfig, makeConfig
 
 # Flag indicating that capturing should be stopped
 STOP_CAPTURE = False
@@ -124,123 +124,33 @@ if __name__ == "__main__":
         os.mkdir(DEFAULT_PATH,0o755)
         print("A new directory called RadiometerData has been created to store all data collected.\nIf no config.txt is found in this directory on the next run,\none will be generated and can then be generated and can be altered.\n\nThe program will now close.")
         sys.exit()
-        
+    
+    # Check to see if a default config file was given
     if cml_args.config:
-        
-        # Create a config object
-        config = configparser.ConfigParser()
-    
-        # Read the config file into the object
-        config.read(cml_args.config)
-    
-        # Gather configuration data for the station
-        station_code = config['Station']['StationCode']
-        channel = config['Station']['Channel']
-        latitude = float(config['Station']['Latitude'])
-        longitude = float(config['Station']['Longitude'])
-        elevation = float(config['Station']['Elevation'])
-        instrument_string = config['Station']['InstrumentString']
-        raw = config['Station']['RawData']
-        zipped = config['Station']['StoredData']
-        mode = int(config['Station']['DifferentialMode'])
-        gain = int(config['Station']['Gain'])
-        
-        # Gather configuration data for the upload manager
-        upload_enabled = config['Upload']['EnableUpload']
-        hostname = config['Upload']['HostName']
-        rsa_private_key = config['Upload']['RSAPrivateKey']
-        upload_queue_file = config['Upload']['QueueFilename']
-        remote_dir = config['Upload']['RemoteDirectory']
+        rdm_config = readConfig(cml_args.config)
         
     # Check to see if there is a config file
     elif (os.path.isfile(os.path.join(DEFAULT_PATH,CONFIG))):
-        
-        # Create a config object
-        config = configparser.ConfigParser()
-    
-        # Read the config file into the object
-        config.read(os.path.join(DEFAULT_PATH,CONFIG))
-    
-        # Gather configuration data
-        station_code = config['Station']['StationCode']
-        channel = config['Station']['Channel']
-        latitude = float(config['Station']['Latitude'])
-        longitude = float(config['Station']['Longitude'])
-        elevation = float(config['Station']['Elevation'])
-        instrument_string = config['Station']['InstrumentString']
-        raw = config['Station']['RawData']
-        zipped = config['Station']['StoredData']
-        mode = int(config['Station']['DifferentialMode'])
-        gain = int(config['Station']['Gain'])
-
-        # Gather configuration data for the upload manager
-        upload_enabled = config['Upload']['EnableUpload']
-        hostname = config['Upload']['HostName']
-        rsa_private_key = config['Upload']['RSAPrivateKey']
-        upload_queue_file = config['Upload']['QueueFilename']
-        remote_dir = config['Upload']['RemoteDirectory']
+        rdm_config = readConfig(os.path.join(DEFAULT_PATH,CONFIG))
         
     else:
-        
-        # There was no detected config file so one will be created
-        # An error message explaining the issue
-        print("No config file detected in /home/pi/RadiometerData")
-        print("A default config file has been created and can be changed in RadiometerData")
-        
-        # Create a config object
-        config = configparser.ConfigParser()
-        
-        # optionxform prevents it from naming all config parameters with lower case letters
-        config.optionxform = str
-        
-        # Creates the station data inside the config file using default values
-        config['Station'] = OrderedDict((
-            ('StationCode', 'AA0000'),
-            ('Channel', 'A'),
-            ('Latitude', '0.0'),
-            ('Longitude', '0.0'),
-            ('Elevation', '0.0'),
-            ('InstrumentString', 'Your description'),
-            ('RawData','CapturedData'),
-            ('StoredData','ArchivedData'),
-            ('DifferentialMode','1'),
-            ('Gain','1')
-        ))
-        
-        # Creates the upload manager configuration section using default settings
-        config['Upload'] = OrderedDict((
-            ('EnableUpload', 'True'),
-            ('HostName', ''),
-            ('RSAPrivateKey', '~/.ssh/id_rsa'),
-            ('QueueFilename','FILES_TO_UPLOAD.inf'),
-            ('RemoteDirectory','.')
-        ))
-        
-        # Generate the file in the desired directory and close it
-        with open(os.path.join(DEFAULT_PATH, CONFIG), 'w') as configfile:config.write(configfile)
-        configfile.closed
-        
-        # Allow the user to configure the config file
-        os.chmod(os.path.join(DEFAULT_PATH, CONFIG), 0o777)
-        
-        # Exit allowing the user to configure their settings
-        sys.exit()
+        makeConfig(os.path.join(DEFAULT_PATH,CONFIG))
     
     # Check if storage files exist, if not create them
     # Check if both don't exist
-    if (not (os.path.isdir(os.path.join(DEFAULT_PATH, raw)) or os.path.isdir(os.path.join(DEFAULT_PATH, zipped)))):
-        os.mkdir(os.path.join(DEFAULT_PATH, raw),0o755)
-        os.mkdir(os.path.join(DEFAULT_PATH, zipped),0o755)
+    if (not (os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.raw)) or os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.zipped)))):
+        os.mkdir(os.path.join(DEFAULT_PATH, rdm_config.raw),0o755)
+        os.mkdir(os.path.join(DEFAULT_PATH, rdm_config.zipped),0o755)
         
     # Check if the raw data folder exists and the archiving folder doesn't yet
-    elif (os.path.isdir(os.path.join(DEFAULT_PATH, raw)) and (not os.path.isdir(os.path.join(DEFAULT_PATH, zipped)))):
-        os.mkdir(os.path.join(DEFAULT_PATH, zipped),0o755)
+    elif (os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.raw)) and (not os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.zipped)))):
+        os.mkdir(os.path.join(DEFAULT_PATH, rdm_config.zipped),0o755)
         
     # Check if the archiving folder exists and the raw data folder doesn't yet
-    elif (os.path.isdir(os.path.join(DEFAULT_PATH, zipped)) and (not os.path.isdir(os.path.join(DEFAULT_PATH, raw)))):
-        os.mkdir(os.path.join(DEFAULT_PATH, raw),0o755)
+    elif (os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.zipped)) and (not os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.raw)))):
+        os.mkdir(os.path.join(DEFAULT_PATH, rdm_config.raw),0o755)
     
-    upload_config = UploadConfig(station_code, hostname, remote_dir, rsa_private_key, upload_queue_file)
+    upload_config = UploadConfig(rdm_config.station_code, rdm_config.hostname, rdm_config.remote_dir, rdm_config.rsa_private_key, rdm_config.upload_queue_file)
     
         
 ##############################################################################################################
@@ -257,7 +167,7 @@ if __name__ == "__main__":
         duration = (float(cml_args.loops))/7.2
 
     upload_manager = None
-    if upload_enabled:
+    if rdm_config.upload_enabled:
         # Init the upload manager
         upload_manager = UploadManager(upload_config)
         upload_manager.start()
@@ -268,14 +178,14 @@ if __name__ == "__main__":
     # If a duration was given in loops or hours, run for the desired length of time
     if (cml_args.duration or cml_args.loops):
         
-        deleteOldObservations(DEFAULT_PATH,raw,zipped,duration)
+        deleteOldObservations(DEFAULT_PATH, rdm_config.raw, rdm_config.zipped, duration)
         
-        stored_path = makeDirectory(station_code, channel, os.path.join(DEFAULT_PATH, raw))
+        stored_path = makeDirectory(rdm_config.station_code, rdm_config.channel, os.path.join(DEFAULT_PATH, rdm_config.raw))
 
         resetSIGINT()
 
         # ads1256.run returns 0 when its done recording
-        running = ads1256.run(duration, mode, gain, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
+        running = ads1256.run(duration, rdm_config.mode, rdm_config.gain, rdm_config.station_code, rdm_config.channel, rdm_config.latitude, rdm_config.longitude, rdm_config.elevation, rdm_config.instrument_string, stored_path)
 
         setSIGINT()
         
@@ -287,8 +197,9 @@ if __name__ == "__main__":
             print("\nProgram terminated!\n")
         # If it exited safely, zip the data
         else:
+            
             # Zips the files and moves the =m to the archiving directory
-            archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, zipped),os.path.split(source)[1]) , os.path.split(source)[1])
+            archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, rdm_config.zipped),os.path.split(source)[1]) , os.path.split(source)[1])
             
             # Put the archive up for upload
             if upload_manager is not None:
@@ -298,22 +209,18 @@ if __name__ == "__main__":
     
     
 ##############################################################################################################
-    
-    
-    
-    
-    
+
     # If no duration given, it is assumed to wait for night and run all night.
     else:
         while(not STOP_CAPTURE):
             
             # Get a datetime object of exactly when sunset is at -5.5 deg and how long to run for until sunrise in seconds
-            start_time, duration = captureDuration(latitude,longitude,elevation)
+            start_time, duration = captureDuration(rdm_config.latitude, rdm_config.longitude, rdm_config.elevation)
             
             # Convert duration to hours
             duration/=3600
             
-            deleteOldObservations(DEFAULT_PATH,raw,zipped,duration)
+            deleteOldObservations(DEFAULT_PATH, rdm_config.raw, rdm_config.zipped, duration)
             
             # If start_time holds a datetime object as opposed to being True
             if start_time != True:
@@ -336,13 +243,13 @@ if __name__ == "__main__":
                 
             # Creates the directory to store the data from this current run and returns the file path used to 
             # store the data in c, uses two slashes instead of one "/" -> "//"
-            stored_path = makeDirectory(station_code, channel, os.path.join(DEFAULT_PATH, raw))
+            stored_path = makeDirectory(rdm_config.station_code, rdm_config.channel, os.path.join(DEFAULT_PATH, rdm_config.raw))
             
             resetSIGINT()
             
             # ads1256.run returns 0 when its done recording, or 1 for a forced exit, automatically saves data
             # to stored_path
-            running = ads1256.run(duration, mode, gain, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
+            running = ads1256.run(duration, rdm_config.mode, rdm_config.gain, rdm_config.station_code, rdm_config.channel, rdm_config.latitude, rdm_config.longitude, rdm_config.elevation, rdm_config.instrument_string, stored_path)
             
             setSIGINT()
             
@@ -357,8 +264,11 @@ if __name__ == "__main__":
                 
             # If it exited safely, zip the data
             else:
+                
+                getNightPlot(source)
+                
                 # Zips the files and moves the =m to the archiving directory
-                archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, zipped),os.path.split(source)[1]) , os.path.split(source)[1])
+                archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, rdm_config.zipped),os.path.split(source)[1]) , os.path.split(source)[1])
                 
                 # Put the archive up for upload
                 if upload_manager is not None:

@@ -13,6 +13,7 @@ import ads1256
 import vispy
 from vispy import gloo
 from vispy import app
+from GetRDMConfig import RDMConfig, readConfig
 import numpy as np
 import math
 
@@ -27,10 +28,10 @@ m = nrows*ncols
 # Number of samples on screen.
 n = 1000
 
-channel = 0
+#channel = 0
 sps = 3750
-gain = 1
-mode = 1
+#gain = 1
+#mode = 1
 
 DATA_MIN = 0
 DATA_MAX = 2**23 - 1
@@ -38,7 +39,9 @@ data_min=1
 data_max=-1
 height=0
 
-ads1256.init(gain,sps,mode)
+rdm_config = readConfig(os.path.join(DEFAULT_PATH,CONFIG))
+
+ads1256.init(rdm_config.gain,sps, rdm_config.mode)
 ads1256.init_channel(channel)
 
 ##############################################################################################################
