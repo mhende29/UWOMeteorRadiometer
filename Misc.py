@@ -53,14 +53,16 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
     # Make the archive directory
     mkdirP(dest_dir)
     
-    for file_name in file_list if file_name.endswith(".rdm"):
-        # Compress the archive directory
-        archive_file_name = shutil.make_archive(os.path.join(source_dir, file_name), 'bztar', source_dir)
+    for file_name in file_list:
+        if file_name.endswith(".rdm"):
+            # Compress the archive directory
+            archive_file_name = shutil.make_archive(os.path.join(source_dir, file_name), 'bztar', source_dir)
     
-        shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
+            shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
 
-    for graph in file_list if graph.endswith(".png"):
-        shutil.move(os.path.join(source_dir, graph), os.path.join(dest_dir, graph))
+    for graph in file_list:
+        if graph.endswith(".png"):
+            shutil.move(os.path.join(source_dir, graph), os.path.join(dest_dir, graph))
         
     # Copy the additional files to the archive directory
     if extra_files is not None:
