@@ -31,7 +31,7 @@ m = nrows*ncols
 # Number of samples on screen.
 n = 1000
 
-#channel = 0
+channel = 0
 sps = 3750
 #gain = 1
 #mode = 1
