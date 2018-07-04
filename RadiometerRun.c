@@ -196,7 +196,7 @@ int32_t Read_Single_Channel(uint8_t channel);
 void Init_Single_Channel(uint8_t channel);
 uint8_t getgain(double givengain);
 void savedat(rdm *data,const char *path);
-int thread1(double duration, unsigned char mode, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path);
+int thread1(double duration, unsigned char mode, double gain, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path);
 void* thread2(void);
 int Runtime(double time);
 int ADC_Stop(void);
@@ -993,7 +993,7 @@ int ADC_Stop(void)
 *********************************************************************************************************
 */
 
-int thread1(double duration, unsigned char mode, char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path)
+int thread1(double duration, unsigned char mode, double gain,char *station_code, char *channel, double latitude, double longitude, double elevation, char *instrument_string, char *path)
 {
     
     // Initialize a variable to store the current ADC value
@@ -1016,7 +1016,7 @@ int thread1(double duration, unsigned char mode, char *station_code, char *chann
     // uint8_t mode = 1;
     
     //Gains are 1,2,4,8,16,32 and 64
-    double gain = 1; 
+    //double gain = 1; 
     
     // Function sample rate determines the equivalent hex value associated to the sps
     // Inputs must be 30000,15000,7500,3750,2000,1000,500,100,60,50,30,25,15,10,5,2.5

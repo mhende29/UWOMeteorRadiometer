@@ -143,6 +143,7 @@ if __name__ == "__main__":
         raw = config['Station']['RawData']
         zipped = config['Station']['StoredData']
         mode = int(config['Station']['DifferentialMode'])
+        gain = int(config['Station']['Gain'])
         
         # Gather configuration data for the upload manager
         upload_enabled = config['Upload']['EnableUpload']
@@ -170,7 +171,8 @@ if __name__ == "__main__":
         raw = config['Station']['RawData']
         zipped = config['Station']['StoredData']
         mode = int(config['Station']['DifferentialMode'])
-        
+        gain = int(config['Station']['Gain'])
+
         # Gather configuration data for the upload manager
         upload_enabled = config['Upload']['EnableUpload']
         hostname = config['Upload']['HostName']
@@ -201,7 +203,8 @@ if __name__ == "__main__":
             ('InstrumentString', 'Your description'),
             ('RawData','CapturedData'),
             ('StoredData','ArchivedData'),
-            ('DifferentialMode','1')
+            ('DifferentialMode','1'),
+            ('Gain','1')
         ))
         
         # Creates the upload manager configuration section using default settings
@@ -272,7 +275,7 @@ if __name__ == "__main__":
         resetSIGINT()
 
         # ads1256.run returns 0 when its done recording
-        running = ads1256.run(duration, mode, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
+        running = ads1256.run(duration, mode, gain, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
 
         setSIGINT()
         
@@ -339,7 +342,7 @@ if __name__ == "__main__":
             
             # ads1256.run returns 0 when its done recording, or 1 for a forced exit, automatically saves data
             # to stored_path
-            running = ads1256.run(duration, mode, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
+            running = ads1256.run(duration, mode, gain, station_code, channel, latitude, longitude, elevation, instrument_string, stored_path)
             
             setSIGINT()
             
