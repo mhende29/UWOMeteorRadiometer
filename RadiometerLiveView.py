@@ -9,13 +9,16 @@ Multiple real-time digital signals with GLSL-based clipping.
 """
 
 import ads1256
-
+import os
 import vispy
 from vispy import gloo
 from vispy import app
 from GetRDMConfig import RDMConfig, readConfig
 import numpy as np
 import math
+
+DEFAULT_PATH = "/home/pi/RadiometerData"
+CONFIG = "config.txt"
 
 # Number of cols and rows in the table.
 nrows = 1
