@@ -10,14 +10,13 @@ import matplotlib
 import matplotlib.pyplot as plt
 from datetime import datetime
 
-from AnalyzeData import readRDM, movingAverage
+from getRDMData import readRDM
+from AnalyzeData import movingAverage
 
 
 def getNightPlot(file_path, get_peaks = True):
 
-
-
-	file_list = [file_name for file_name in os.listdir(file_path)]
+	file_list = [file_name for file_name in os.listdir(file_path) if file_name.endswith(".rdm")]
 	file_list = sorted(file_list)
 	file_size = len(file_list)
 	files_left = file_size
@@ -27,6 +26,7 @@ def getNightPlot(file_path, get_peaks = True):
 	data_times = []
 	raw_data = []
 	raw_time = []
+	
 	# We have 4 MB of data per file which translates to 1048576 or 2^20, since we're taking bins 64 samples which is 2^6 samples
 	# we will need to run 2^20/2^6 loops which is 2^(20-6) = 2^14 loops per file
 	bin_size = 8192 
@@ -56,25 +56,27 @@ def getNightPlot(file_path, get_peaks = True):
 
 		print("{:.2%} Complete".format(1.0-files_left/float(file_size)))
 		
-	#plt.plot(data_times,data_average)
-	#plt.plot(data_times,data_peaks)
 	data_average = np.array(data_average)
 	data_peaks = np.array(data_peaks)
 	data_times = [datetime.utcfromtimestamp(t) for t in data_times]
 
-	plt.plot(data_times,data_average)
-	plt.plot(data_times,data_peaks)
+	plt.plot(data_times, data_average, label = "Averages")
+	plt.plot(data_times, data_peaks, label = "Peaks")
 	plt.grid(which = "both")
 	plt.gca().set_yscale('log')
 	plt.xticks(rotation=30)
 	plt.xlabel('Time')
 	plt.ylabel('ADU')
+	plt.legend(loc = 0)
 
 	if(data_times[0].strftime('%d') == data_times[-1].strftime('%d')):
 		plt.title('Peak intensities for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d, %Y'))
 	else:
 		plt.title('Peak intensities for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d') + ' to ' + data_times[-1].strftime('%d, %Y'))
-	plt.show()
+	print()
+
+	plt.savefig(os.path.join(file_path,"NightPlot_{:s}.png".format(data_times[0].strftime('%Y%m%d'))), dpi=300)
+	plt.close()
 
 	plt.plot(data_times[1:-1], data_peaks[1:-1] - (data_average[:-2]+data_average[2:])/2)
 	plt.grid(which = "both")
@@ -85,11 +87,10 @@ def getNightPlot(file_path, get_peaks = True):
 		plt.title('Intensity variations for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d, %Y'))
 	else:
 		plt.title('Intensity variations for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d') + ' to ' + data_times[-1].strftime('%d, %Y'))
-	plt.show()
+	
+	plt.savefig(os.path.join(file_path,"MaxMinus_{:s}.png".format(data_times[0].strftime('%Y%m%d'))), dpi=300)
 
 if __name__ == "__main__":
-
-	#file_stored = "/home/michael/Desktop/Radiometer Events/June 20 2018/"
 	
 	# Set up input arguments
 	arg_p = argparse.ArgumentParser(description="Get radiometer files.")
