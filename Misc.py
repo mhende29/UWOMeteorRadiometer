@@ -52,11 +52,12 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
 
     # Make the archive directory
     mkdirP(dest_dir)
-
-    # Compress the archive directory
-    archive_name = shutil.make_archive(os.path.join(source_dir, compress_file), 'bztar', source_dir)
     
-    shutil.move(archive_name,os.path.join(dest_dir, os.path.split(archive_name)[1]))
+    for file_name in file_list:
+        # Compress the archive directory
+        archive_file_name = shutil.make_archive(os.path.join(source_dir, file_name), 'bztar', source_dir)
+    
+        shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
 
     # Copy the additional files to the archive directory
     if extra_files is not None:
@@ -66,9 +67,8 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
     # Delete the archive directory after compression
     if delete_dest_dir:
         shutil.rmtree(dest_dir)
-
     
-    return archive_name
+    return dest_dir
 
 
 
