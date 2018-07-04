@@ -1125,9 +1125,9 @@ int thread1(double duration, unsigned char mode, char *station_code, char *chann
             
             // TEST!!!
             // Read only first 2k samples
-            //if(count == 20000){
-            //    count = DATA_SIZE - 1;
-            //}
+            if(count == 20000){
+               count = DATA_SIZE - 1;
+            }
             
             // Acquire the current 24 bit adc value 
             adc = Read_Single_Channel(channel);
