@@ -1153,10 +1153,7 @@ int thread1(double duration, unsigned char mode, double gain,char *station_code,
             if(kill_flag == 1){
                 goto end;
             }
-        }   
-        
-        // Save data to disk
-        // savedat(&rad_data, "//home//pi//RadiometerData//");
+        }
         
         // Acknowledge data is ready, use 1 to identify if data1 is ready and 2 to identify data2 is ready
         if(radflag==0){

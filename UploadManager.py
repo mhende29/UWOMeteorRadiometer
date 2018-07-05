@@ -93,34 +93,33 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
     if not file_list:
         log.info('No files to upload!')
         return True
-
+        
     # Connect and use paramiko Transport to negotiate SSH2 across the connection
     # The whole thing is in a try block because if an error occurs, the connection will be closed at the end
     try:
-
         log.info('Establishing SSH connection to: ' + hostname + ':' + str(port) + '...')
-
+        
         # Connect to host
         t = paramiko.Transport((hostname, port))
-        t.start_client()
-
+        t.start_client() 
+        
         # Authenticate the connection
         auth_status = _agentAuth(t, username, rsa_private_key)
+        
         if not auth_status:
             return False
-
+            
         # Open new SFTP connection
         sftp = paramiko.SFTPClient.from_transport(t)
-
+        
         # Check that the remote directory exists
         try:
             sftp.stat(dir_remote)
-
+        
         except Exception as e:
             log.error("Remote directory '" + dir_remote + "' does not exist!")
             return False
-        
-        
+
         folder_name = file_list[0]
         file_list = [file_name for file_name in os.listdir(os.path.join(dir_local, file_list[0]))]
         
@@ -128,30 +127,24 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
             sftp.chdir(os.path.join(dir_remote,folder_name))  # Test if remote_path exists
         except IOError:
             sftp.mkdir(os.path.join(dir_remote,folder_name))  # Create remote_path
-        
+
         dir_remote = os.path.join(dir_remote,folder_name)
         
         # Go through all files
         for fname in file_list:
-
-
             # Path to the local file
             local_file = os.path.join(os.path.join(dir_local,folder_name), fname)
-            
-            #print(local_file)
             
             # Get the size of the local file
             local_file_size = os.lstat(local_file).st_size
             
             # Path to the remote file
             remote_file = dir_remote + '/' + os.path.basename(fname)
-            
             remote_file = os.path.join(dir_remote,os.path.basename(fname))
-
+            
             # Check if the remote file already exists and skip it if it has the same size as the local file
             try:
                 remote_info = sftp.lstat(remote_file)
-                
                 # If the remote and the local file are of the same size, skip it
                 if local_file_size == remote_info.st_size:
                     continue
@@ -162,9 +155,6 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
             
             # Upload the file to the server if it isn't already there
             log.info('Copying ' + local_file + ' to ' + remote_file)
-            
-            
-            
             sftp.put(local_file, remote_file)
 
         t.close()
@@ -221,14 +211,14 @@ class UploadManager(multiprocessing.Process):
 
     def addFiles(self, file_list):
         """ Adds a list of files to be uploaded to the queue. """
-
+        
         # Add the files to the queue
         for file_name in file_list:
             self.file_queue.put(file_name)
-
+            
         # Write the queue to disk
         self.saveQueue()
-
+        
         # Upload the data
         self.uploadData()
 
@@ -301,12 +291,11 @@ class UploadManager(multiprocessing.Process):
         Keyword arguments:
             retries: [int] Number of tried to upload a file before giving up.
         """
-
+        
         # Skip uploading if the upload is already in progress
         if self.upload_in_progress.value:
             return
-
-
+        
         # Set flag that the upload as in progress
         self.upload_in_progress.value = True
 
@@ -336,21 +325,15 @@ class UploadManager(multiprocessing.Process):
 
             # If the upload failed, put the file back on the list and wait a bit
             else:
-
                 log.warning('Uploading failed! Retry {:d} of {:d}'.format(tries + 1, retries))
-
                 tries += 1 
                 self.file_queue.put(file_name)
-
                 time.sleep(2)
-
             # Check if the upload was tried too many times
             if tries >= retries:
                 break
-
         # Set the flag that the upload is done
         self.upload_in_progress.value = False
-
 
 
     def run(self):
