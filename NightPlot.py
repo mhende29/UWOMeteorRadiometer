@@ -83,15 +83,15 @@ def getNightPlot(file_path, get_peaks = True):
 	plt.xticks(rotation=30)
 	plt.xlabel('Time')
 	plt.ylabel('ADU')
-    
+	
 	if(data_times[0].strftime('%d') == data_times[-1].strftime('%d')):
 		plt.title('Intensity variations for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d, %Y'))
 	else:
-        plt.title('Intensity variations for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d') + ' to ' + data_times[-1].strftime('%d, %Y'))
+		plt.title('Intensity variations for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d') + ' to ' + data_times[-1].strftime('%d, %Y'))
 	
-    plt.savefig(os.path.join(file_path, "MaxMinus_{:s}.png".format(data_times[0].strftime('%Y%m%d'))), dpi=300)
-    plt.close()
-    
+	plt.savefig(os.path.join(file_path, "MaxMinus_{:s}.png".format(data_times[0].strftime('%Y%m%d'))), dpi=300)
+	plt.close()
+	
 if __name__ == "__main__":
 	
 	# Set up input arguments
