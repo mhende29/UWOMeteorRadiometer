@@ -18,6 +18,7 @@ from CaptureDuration import captureDuration
 from DeleteOldObservations import deleteOldObservations
 from Misc import archiveDir
 from UploadManager import UploadManager
+from NightPlot import getNightPlot
 from GetRDMConfig import RDMConfig, readConfig, makeConfig
 
 # Flag indicating that capturing should be stopped
