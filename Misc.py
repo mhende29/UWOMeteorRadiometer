@@ -55,8 +55,8 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
     
     for file_name in file_list:
         if file_name.endswith(".rdm"):
-            # Compress the archive directory
-            archive_file_name = shutil.make_archive(os.path.join(source_dir, file_name), 'bztar', source_dir)
+            # Compress the archive 
+            archive_file_name = shutil.make_archive(os.path.join(source_dir, file_name), 'bztar')
     
             shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
 

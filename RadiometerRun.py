@@ -238,6 +238,7 @@ if __name__ == "__main__":
                 
                 # Wait until sunset using the wait time in seconds
                 exit_loop.wait(int(waiting_time.total_seconds()))
+                
                 if (STOP_CAPTURE):
                     break
                 

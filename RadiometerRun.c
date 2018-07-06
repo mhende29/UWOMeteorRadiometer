@@ -1125,7 +1125,7 @@ int thread1(double duration, unsigned char mode, double gain,char *station_code,
             
             // TEST!!!
             // Read only first 2k samples
-            //if(count == 20000){
+            //if(count == 10000){
             //   count = DATA_SIZE - 1;
             //}
             
