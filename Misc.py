@@ -53,16 +53,36 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
     # Make the archive directory
     mkdirP(dest_dir)
     
-    for file_name in file_list:
-        if file_name.endswith(".rdm"):
-            # Compress the archive 
-            archive_file_name = shutil.make_archive(os.path.join(source_dir, file_name), 'bztar')
+    files_zipped = 0
+    plots_moved = 0
     
-            shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
+    rdm_list = [rdm_file for rdm_file in file_list if file_name.endswith(".rdm")]
+    rdm_list = sorted(rdm_list)
+    plot_list = [plot for plot in file_list if plot.endswith(".png")]
+    
+    for rdm_file in rdm_list:
+        # Compress the archive 
+        archive_file_name = shutil.make_archive(os.path.join(source_dir, rdm_file), 'bztar',os.path.join(source_dir, rdm_file))
+        
+        shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
+        
+        files_zipped += 1
+        
+        if(rdm_file is not rdm_list[-1]):
+            print("Zipped {:.2%} of files.".format(files_zipped/len(rdm_list)), end = '\r')
+        else:
+            print("Zipped {:.2%} of files.".format(files_zipped/len(rdm_list)), end = '\n')
 
-    for graph in file_list:
-        if graph.endswith(".png"):
-            shutil.move(os.path.join(source_dir, graph), os.path.join(dest_dir, graph))
+    for plot in plot_list:
+        
+        shutil.move(os.path.join(source_dir, plot), os.path.join(dest_dir, plot))
+        
+        plots_moved += 1        
+        
+        if(plot is not plot_list[-1]):
+            print("Moved {:.2%} of plots.".format(plots_moved/len(plot_list)), end = '\r')
+        else:
+            print("Moved {:.2%} of plots.".format(plots_moved/len(plot_list)), end = '\n')
         
     # Copy the additional files to the archive directory
     if extra_files is not None:

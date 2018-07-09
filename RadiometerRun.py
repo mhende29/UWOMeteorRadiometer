@@ -266,6 +266,7 @@ if __name__ == "__main__":
             # If it exited safely, zip the data
             else:
                 
+                # Creates a composite plot of the nights radiometric data
                 getNightPlot(source)
                 
                 # Zips the files and moves the =m to the archiving directory
