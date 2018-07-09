@@ -18,7 +18,7 @@ def manArchive(source_dir, dest_dir):
     for rdm_file in rdm_list:
         # Compress the archive 
         archive_file_name = os.path.join(source_dir, rdm_file + ".tar.bz2")
-        #print(os.path.join(dest_dir, archive_file_name))
+        
         with tarfile.open(archive_file_name, "w:bz2") as tar:
             tar.add(os.path.join(source_dir,rdm_file))
         

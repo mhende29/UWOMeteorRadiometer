@@ -2,6 +2,7 @@
 import platform
 import os
 import shutil
+import tarfile
 import errno
 import logging
 import subprocess
