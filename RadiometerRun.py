@@ -200,7 +200,7 @@ if __name__ == "__main__":
         else:
             
             # Zips the files and moves the =m to the archiving directory
-            archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, rdm_config.zipped),os.path.split(source)[1]) , os.path.split(source)[1])
+            archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, rdm_config.zipped),os.path.split(source)[1]))
             
             # Put the archive up for upload
             if upload_manager is not None:
@@ -270,7 +270,7 @@ if __name__ == "__main__":
                 getNightPlot(source)
                 
                 # Zips the files and moves the =m to the archiving directory
-                archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, rdm_config.zipped),os.path.split(source)[1]) , os.path.split(source)[1])
+                archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, rdm_config.zipped),os.path.split(source)[1]))
                 
                 # Put the archive up for upload
                 if upload_manager is not None:

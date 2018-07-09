@@ -29,7 +29,7 @@ def mkdirP(path):
 
 
 
-def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=False, extra_files=None):
+def archiveDir(source_dir, file_list, dest_dir, delete_dest_dir=False, extra_files=None):
     """ Move the given file list from the source directory to the destination directory, compress the 
         destination directory and save it as a .bz2 file. BZ2 compression is used as ZIP files have a limit
         of 2GB in size.
@@ -56,13 +56,16 @@ def archiveDir(source_dir, file_list, dest_dir, compress_file, delete_dest_dir=F
     files_zipped = 0
     plots_moved = 0
     
-    rdm_list = [rdm_file for rdm_file in file_list if file_name.endswith(".rdm")]
+    rdm_list = [rdm_file for rdm_file in file_list if rdm_file.endswith(".rdm")]
     rdm_list = sorted(rdm_list)
     plot_list = [plot for plot in file_list if plot.endswith(".png")]
     
     for rdm_file in rdm_list:
-        # Compress the archive 
-        archive_file_name = shutil.make_archive(os.path.join(source_dir, rdm_file), 'bztar',os.path.join(source_dir, rdm_file))
+        # Compress the archive
+        archive_file_name = os.path.join(source_dir, rdm_file + ".tar.bz2")
+         
+        with tarfile.open(archive_file_name, "w:bz2") as tar:
+            tar.add(os.path.join(source_dir,rdm_file))
         
         shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
         
