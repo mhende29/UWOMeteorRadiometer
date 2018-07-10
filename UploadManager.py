@@ -139,7 +139,6 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
             local_file_size = os.lstat(local_file).st_size
             
             # Path to the remote file
-            remote_file = dir_remote + '/' + os.path.basename(fname)
             remote_file = os.path.join(dir_remote,os.path.basename(fname))
             
             # Check if the remote file already exists and skip it if it has the same size as the local file
@@ -156,7 +155,7 @@ def uploadSFTP(hostname, username, dir_local, dir_remote, file_list, port=22,
             # Upload the file to the server if it isn't already there
             log.info('Copying ' + local_file + ' to ' + remote_file)
             sftp.put(local_file, remote_file)
-            print("Successfully uploaded {:s}".format(local_file))
+            print("Successfully uploaded {:s}".format(os.path.basename(fname))
 
         t.close()
 
