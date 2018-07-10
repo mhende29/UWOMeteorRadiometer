@@ -17,12 +17,17 @@ def manArchive(source_dir, dest_dir):
     
     for rdm_file in rdm_list:
         # Compress the archive 
-        archive_file_name = os.path.join(source_dir, rdm_file + ".tar.bz2")
+        archive_file_name = rdm_file + ".tar.bz2"
+        
+        base_dir = os.getcwd()
+        os.chdir(source_dir)
         
         with tarfile.open(archive_file_name, "w:bz2") as tar:
-            tar.add(os.path.join(source_dir,rdm_file))
+            tar.add(rdm_file)
         
-        shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
+        os.chdir(base_dir)
+        
+        shutil.move(os.path.join(source_dir, archive_file_name),os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
         
         files_zipped += 1
         
@@ -48,13 +53,7 @@ def manArchive(source_dir, dest_dir):
 
 if __name__ == "__main__":
     source1 = "/home/pi/RadiometerData/CapturedData/CA0001_A_20180707-014143"
-    source2 = "/home/pi/RadiometerData/CapturedData/CA0001_A_20180708-014116"
-    source3 = "/home/pi/RadiometerData/CapturedData/CA0001_A_20180709-014047"
     
     dest1 = "/home/pi/RadiometerData/ArchivedData/CA0001_A_20180707-014143"
-    dest2 = "/home/pi/RadiometerData/ArchivedData/CA0001_A_20180708-014116"
-    dest3 = "/home/pi/RadiometerData/ArchivedData/CA0001_A_20180709-014047"
     
-    #manArchive(source1,dest1)
-    #manArchive(source2,dest2)
-    manArchive(source3,dest3)
+    manArchive(source1,dest1)

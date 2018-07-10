@@ -63,12 +63,17 @@ def archiveDir(source_dir, file_list, dest_dir, delete_dest_dir=False, extra_fil
     
     for rdm_file in rdm_list:
         # Compress the archive
-        archive_file_name = os.path.join(source_dir, rdm_file + ".tar.bz2")
-         
-        with tarfile.open(archive_file_name, "w:bz2") as tar:
-            tar.add(os.path.join(source_dir,rdm_file))
+        archive_file_name = rdm_file + ".tar.bz2"
         
-        shutil.move(archive_file_name,os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
+        base_dir = os.getcwd()
+        os.chdir(source_dir)
+        
+        with tarfile.open(archive_file_name, "w:bz2") as tar:
+            tar.add(rdm_file)
+        
+        os.chdir(base_dir)
+        
+        shutil.move(os.path.join(source_dir, archive_file_name),os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
         
         files_zipped += 1
         
