@@ -14,13 +14,27 @@ from getRDMData import readRDM
 from AnalyzeData import movingAverage
 
 
-def getNightPlot(file_path, get_peaks = True):
+def getNightPlot(file_path):
+	""" Generates two plots of the nights data. 
 
+		Input Arguments:
+			
+			-file_path (string): The path to the directory that stores the nights data. Ex: /home/user/Desktop/RadiometerData/CaptureData/AA0000_A_19700101-000000
+
+		Outputs:
+
+			- Two .png plots saved in the given file_path
+	"""
+
+	# Enter the nights directory and gather the names of all the .rdm files 
 	file_list = [file_name for file_name in os.listdir(file_path) if file_name.endswith(".rdm")]
 	file_list = sorted(file_list)
+
+	# Define how many .rdm files were in the directory
 	file_size = len(file_list)
 	files_left = file_size
 
+	# Define several empty lists to store the data that will be collected
 	data_average = []
 	data_peaks = []
 	data_times = []
@@ -32,20 +46,19 @@ def getNightPlot(file_path, get_peaks = True):
 	bin_size = 8192 
 	loops = int(2**20/bin_size)
 	
-
+	# Gather data from the files one at a time to reduce RAM usage
 	for file_name in file_list:
 		
 		# Read the RDM file
 		rdm, rdm_status = readRDM(os.path.join(file_path, file_name))
 
+		# Combine the micro-seconds and the seconds
 		time = rdm.time_s.astype(np.float64) + rdm.time_us.astype(np.float64)/1e6
 
 		# Compute the moving average
 		intensity = movingAverage(rdm.intensity, 256)
-		
-		# plt.plot(time[63:], intensity)
-		# plt.show()
 
+		# Compute the data averages and peaks by binning in order to reduce the amount of data plotted by 8192 times
 		for i in range(0,loops):
 			temp_data = intensity[i*bin_size:(i+1)*bin_size]
 			temp_time = time[i*bin_size:(i+1)*bin_size]
@@ -54,12 +67,17 @@ def getNightPlot(file_path, get_peaks = True):
 			data_times.append(np.average(temp_time))
 		files_left -= 1
 
+		# Update on the averaging process
 		print("{:.2%} Complete".format(1.0-files_left/float(file_size)))
-		
+	
+	# Convert the averages and peaks to arrays	
 	data_average = np.array(data_average)
 	data_peaks = np.array(data_peaks)
+
+	# Create a list of datetime objcets from the unix times
 	data_times = [datetime.utcfromtimestamp(t) for t in data_times]
 
+	# Plot the averages and the peaks
 	plt.plot(data_times, data_average, label = "Averages")
 	plt.plot(data_times, data_peaks, label = "Peaks")
 	plt.grid(which = "both")
@@ -69,26 +87,30 @@ def getNightPlot(file_path, get_peaks = True):
 	plt.ylabel('ADU')
 	plt.legend(loc = 0)
 
+	# Determine the appropriate title
 	if(data_times[0].strftime('%d') == data_times[-1].strftime('%d')):
 		plt.title('Peak intensities for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d, %Y'))
 	else:
 		plt.title('Peak intensities for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d') + ' to ' + data_times[-1].strftime('%d, %Y'))
-	print()
 
+	# Save the figure
 	plt.savefig(os.path.join(file_path, "NightPlot_{:s}.png".format(data_times[0].strftime('%Y%m%d'))), dpi=300)
 	plt.close()
 
+	# Plot the max/minus of the data (shows where peaks are more clearly)
 	plt.plot(data_times[1:-1], data_peaks[1:-1] - (data_average[:-2]+data_average[2:])/2)
 	plt.grid(which = "both")
 	plt.xticks(rotation=30)
 	plt.xlabel('Time')
 	plt.ylabel('ADU')
 	
+	# Determine the appropriate title
 	if(data_times[0].strftime('%d') == data_times[-1].strftime('%d')):
 		plt.title('Intensity variations for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d, %Y'))
 	else:
 		plt.title('Intensity variations for ' + file_list[0][0:6] + ' on the night of ' + data_times[0].strftime('%B %d') + ' to ' + data_times[-1].strftime('%d, %Y'))
 	
+	# Save the figure
 	plt.savefig(os.path.join(file_path, "MaxMinus_{:s}.png".format(data_times[0].strftime('%Y%m%d'))), dpi=300)
 	plt.clf()
 	

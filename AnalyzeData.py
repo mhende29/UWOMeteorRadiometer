@@ -4,7 +4,8 @@ from __future__ import print_function, division, absolute_import
 
 import argparse
 import os
-import datetime
+import sys
+from datetime import datetime
 
 import numpy as np
 import scipy.signal
@@ -267,7 +268,7 @@ if __name__ == "__main__":
     import matplotlib
     import matplotlib.pyplot as plt
 
-    dir_path = "/home/michael/Desktop/RadiometerData/ArchivedData"
+    dir_path = "/home/michael/RadiometerData/ArchivedData"
 
     # Set up input arguments
     #arg_p = argparse.ArgumentParser(description="Analyzes radiometer files.")
@@ -288,15 +289,14 @@ if __name__ == "__main__":
         help='Time of the event in the YYYYMMDD-HHMMSS.ms format.', type=str, default=None)
 
     arg_p.add_argument('range', metavar='DURATION_SECONDS', help="""Grabs data so the total, 
-        range of data covers the range. Range/2 on both sides of time. """)
+        covers the range/2 on both sides of time. """)
 
 
     # Parse input arguments
     cml_args = arg_p.parse_args()
     
+    # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(dir_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
-
-    
     # Read the binary RDM file
     #rdm, chksum_pass = readRDM(cml_args.rdm_file)
     
@@ -327,17 +327,16 @@ if __name__ == "__main__":
     
     # Convert UNIX times from int to one float
     #unix_times = rdm.time_s.astype(np.float64) + rdm.time_us.astype(np.float64)/1e6
-    print(unix_times)
+    #print(unix_times)
 
     # Compute relative time since the beginning of the recording
     time_relative = unix_times - np.min(unix_times)
     
     # Create a list containing all times as datetime objects
-    all_datetime = [datetime.datetime.utcfromtimestamp(t) for t in unix_times]
+    all_datetime = [datetime.utcfromtimestamp(t) for t in unix_times]
 
     # Compute samples per second
-    sps = len(unix_times)/(unix_times[-1] - unix_times[0])
-
+    sps = len(time_relative)/(time_relative[-1] - time_relative[0])
     print('SPS:', sps)
     
     # Extract file name
@@ -378,26 +377,41 @@ if __name__ == "__main__":
 
 
 
-    # # Plot raw data
-    plt.plot(all_datetime, intensity)
-    plt.title(cml_args.time + ' unfiltered')
-    plt.xlabel('Time (s)')
-    plt.ylabel('ADU')
-    plt.xticks(rotation=30)
-    plt.show()
+    # Plot raw data
+    # Checks if there's a period in the given string in order to decide if micro-seconds should be incorporated.
+    if(cml_args.time.find(".") is not -1):
+        title = "Unfiltered data within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")) 
+        micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
+        newmicros = micros.rstrip("0")
+        title = title.replace(micros, newmicros)
+    else:
+        title = "Unfiltered data within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
+
+    ax1 = plt.subplot(211)
+    plt.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=2048, noverlap=0)
+    plt.title(title)
+    plt.ylabel('Frequency (Hz)')
+    plt.tick_params(bottom=False, labelbottom=False)
+    plt.subplots_adjust(hspace=0)
     
 
     # Plot the spectrogram
-    plt.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=2048, noverlap=0)
+    ax2 = plt.subplot(212, sharex = ax1)
+    plt.plot(time_relative, intensity,linewidth=0.2)
+    plt.ylabel('ADU')
+    plt.xlabel('Time')
+    plt.xlim([time_relative[0],time_relative[-1]])
+    plt.tick_params(labelbottom=False)
+    ax3 = ax2.twiny()
+    ax3.set_xlim(all_datetime[0],all_datetime[-1])
+    ax3.xaxis.set_ticks_position('bottom')
     
-    plt.title(cml_args.time)
-    plt.xlabel('Time (s)')
-    plt.ylabel('Frequency (Hz)')
+    plt.xticks(rotation=30)
+    
     
     # plt.savefig('/home/pi/Desktop/{:s}.png'.format(file_name), dpi=300)
     
     plt.show()
-
 
     # Plot power spectral density
     #plt.psd(intensity, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
@@ -410,7 +424,7 @@ if __name__ == "__main__":
 
     # Skip the first 5% samples
     beg_cut = int(len(time_relative)*0.05)
-    time_relative = time_relative[beg_cut:]
+    time_relative = time_relative[beg_cut:] - time_relative[beg_cut]
     filtered_data = filtered_data[beg_cut:]
     unix_times = unix_times[beg_cut:]
 
@@ -418,9 +432,12 @@ if __name__ == "__main__":
     end_cut = len(time_relative) - int(len(time_relative)*0.01)
     time_relative = time_relative[:end_cut]
     filtered_data = filtered_data[:end_cut]
-    unix_times = unix_times[:end_cut]
+    unix_times = unix_times[:end_cut] 
 
-    unix_times = [datetime.datetime.utcfromtimestamp(t) for t in unix_times]
+    # Gather datetime equivalents of the unix times
+    unix_times = [datetime.utcfromtimestamp(t) for t in unix_times]
+
+
 
     # # Apply a moving average
     # window_size = 3
@@ -436,6 +453,7 @@ if __name__ == "__main__":
     # bandpass_high = 60.0
     # filtered_data = filterBandpass(rdm.intensity.astype(np.float64), sps, bandpass_low, bandpass_high, order=3)
 
+    # Print the filtered data
     print(filtered_data)
 
     # # Fit a sine
@@ -450,25 +468,28 @@ if __name__ == "__main__":
 
 
     # Plot filtered spectrogram
+    ax1 = plt.subplot(211)
     plt.specgram(filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=2048, noverlap=0)
-
-    plt.title(cml_args.time + ' filtered')
-    plt.xlabel('Time (s)')
+    title = title.replace("Unfiltered", "Filtered")
+    plt.title(title)
+    plt.tick_params(bottom=False, labelbottom=False)
     plt.ylabel('Frequency (Hz)')
-
-    plt.show()
-
-
+    plt.subplots_adjust(hspace=0)
     # Plot power spectral density
     #plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
     #plt.show()
 
 
     # Plot filtered data
-    plt.plot(unix_times, filtered_data)
-    plt.title(cml_args.time + ' filtered')
+    ax2 = plt.subplot(212, sharex = ax1)
+    plt.plot(time_relative, filtered_data)
     plt.xlabel('Time (s)')
     plt.ylabel('ADU')
+    plt.xlim([time_relative[0],time_relative[-1]])
+    plt.tick_params(labelbottom=False)
+    ax3 = ax2.twiny()
+    ax3.set_xlim(unix_times[0],unix_times[-1])
+    ax3.xaxis.set_ticks_position('bottom')
     plt.xticks(rotation=30)
     plt.show()
 

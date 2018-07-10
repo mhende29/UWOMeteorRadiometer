@@ -59,25 +59,31 @@ def readRDM(file_name, checksum_check=False, read_data=True):
 
 	with open(file_name, 'rb') as fid:
 		
+		# Define an rdm object
 		rdm = RDM()
 		
+		# Load the header size and the formatting version
 		rdm.header_size = np.fromfile(fid, dtype=np.uint32, count=1)[0]
 		rdm.format_file_version=np.fromfile(fid, dtype=np.uint32, count=1)[0]
 
+		# Read the station code and the station channel
 		rdm.station_code = (b''.join(np.fromfile(fid, dtype='c', count=6))).decode("utf-8")
 		# Reading 2 bytes even though there is only 1 char / there is an empty byte after the char
 		rdm.channel = (b''.join(np.fromfile(fid, dtype='c', count=2))).decode("utf-8")
 
+		# Load the geographical coordinates
 		rdm.station_latitude=np.fromfile(fid, dtype=np.double, count=1)[0]
 		rdm.station_longitude=np.fromfile(fid, dtype=np.double, count=1)[0]
 		rdm.station_elevation=np.fromfile(fid, dtype=np.double, count=1)[0]
 
+		# Load the description of the device
 		rdm.instrument_string = (b''.join(np.fromfile(fid, dtype='c', count=64))).decode("utf-8")
 		rdm.num_samples = np.fromfile(fid, dtype=np.uint32, count=1)[0]
 		
 		# Need to skip 4 bytes and not sure why
 		np.fromfile(fid, dtype='c', count=4)
 		
+		# Load the checksum
 		rdm.checksum = np.fromfile(fid, dtype=np.uint64, count=1)[0]
 		
 		# Read file begin/end time
@@ -138,11 +144,10 @@ def unzipData(night_path, desired_files):
 	# Unzip all desired files, one at a time
 	for zipped_file in desired_files:
 		with tarfile.open(os.path.join(night_path,zipped_file),"r:bz2") as tar_file:
-			
+
 			# Get the member and name of each zipped file we go through, getmembers and getnames return a list of 1 
 			member = tar_file.getmembers()
 			name = tar_file.getnames()
-
 			# Extract the current desired file
 			tar_file.extractall(night_path,member)
 
@@ -181,7 +186,6 @@ def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_cor
 			- valid_data (list of ints): The rdm intensities in the desired time section
 			- valid_time (list of floats): The rdm timings in the desired time section
 	"""	
-
 	# Convert the time range from string to float
 	time_range = float(time_range)
 
