@@ -301,7 +301,7 @@ if __name__ == "__main__":
         if(os.path.isfile(os.path.join(server_path, "config.txt"))):
             analysis_config = readConfig(os.path.join(server_path, "config.txt"))
             if(analysis_config.read_from_server):
-                dir_path = os.path.join("/home", "rdm_" + cml_args.code.lower())
+                dir_path = os.path.join(os.path.join("/home", "rdm_" + cml_args.code.lower()), "files")
         else:
             print("No config file was found on the server!")
             sys.exit()
