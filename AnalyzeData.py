@@ -308,6 +308,7 @@ if __name__ == "__main__":
     else:
         dir_path = base_path
     
+    print(dir_path)
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(dir_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
     # Read the binary RDM file
