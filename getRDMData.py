@@ -9,6 +9,7 @@ import os
 import sys
 import argparse
 import tarfile
+import shutil
 import numpy as np
 from time import clock
 from datetime import datetime, timedelta
@@ -141,6 +142,15 @@ def unzipData(night_path, desired_files):
 	# Create an empty list to store the rdm objects
 	rdm_obj = []
 
+	# Get working directory
+	temp_dir = os.path.join(os.getcwd(),"temp")
+
+	# If there is no temporary working directory make one
+	if(os.path.isdir(temp_dir)):
+		pass
+	else:
+		os.mkdir(temp_dir ,0o755)
+
 	# Unzip all desired files, one at a time
 	for zipped_file in desired_files:
 		with tarfile.open(os.path.join(night_path,zipped_file),"r:bz2") as tar_file:
@@ -148,16 +158,20 @@ def unzipData(night_path, desired_files):
 			# Get the member and name of each zipped file we go through, getmembers and getnames return a list of 1 
 			member = tar_file.getmembers()
 			name = tar_file.getnames()
+
 			# Extract the current desired file
-			tar_file.extractall(night_path,member)
+			tar_file.extractall(temp_dir,member)
 
 			# Read the RDM file, and add the object to the list
-			temp_rdm, rdm_status = readRDM(os.path.join(night_path, *name))
+			temp_rdm, rdm_status = readRDM(os.path.join(temp_dir, *name))
 			rdm_obj.append(temp_rdm)
 
 			# Delete the unpacked file once the data has been gathered
-			os.remove(os.path.join(night_path, *name))
+			os.remove(os.path.join(temp_dir, *name))
 
+	# Remove the temporary working directory
+	shutil.rmtree(temp_dir)
+	
 	# Create a list to store all time and intensity data
 	all_data, all_time = [], []
 

@@ -1,6 +1,5 @@
 import os
 import sys
-import configparser
 from collections import OrderedDict
 
 class RDMConfig(object):
