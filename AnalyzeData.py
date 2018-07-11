@@ -269,7 +269,7 @@ if __name__ == "__main__":
     import matplotlib
     import matplotlib.pyplot as plt
 
-    dir_path = "/home/michael/RadiometerData/ArchivedData"
+    base_path = "/home/michael/RadiometerData/ArchivedData"
     server_path = "/home/mhende/UWOMeteorRadiometer"
 
     # Set up input arguments
@@ -298,10 +298,15 @@ if __name__ == "__main__":
     cml_args = arg_p.parse_args()
 
     if (os.path.isdir(server_path)):
-        analysis_config = readConfig(os.path.join(server_path, "config.txt"))
-        print(analysis_config.read_from_server)
-
-    sys.exit()
+        if(os.path.isfile(os.path.join(server_path, "config.txt"))):
+            analysis_config = readConfig(os.path.join(server_path, "config.txt"))
+            if(analysis_config.read_from_server):
+                dir_path = os.path.join("/home", "rdm_" + cml_args.code.lower())
+        else:
+            print("No config file was found on the server!")
+            sys.exit()
+    else:
+        dir_path = base_path
     
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(dir_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
