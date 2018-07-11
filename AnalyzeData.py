@@ -6,6 +6,7 @@ import argparse
 import os
 import sys
 from datetime import datetime
+from GetRDMConfig import RDMConfig, readConfig
 
 import numpy as np
 import scipy.signal
@@ -297,7 +298,8 @@ if __name__ == "__main__":
     cml_args = arg_p.parse_args()
 
     if (os.path.isdir(server_path)):
-        print("Yup")
+        analysis_config = readConfig(os.path.join(server_path, "config.txt"))
+        print(analysis_config.read_from_server)
 
     sys.exit()
     
