@@ -54,14 +54,21 @@ def resetSIGINT():
 
 
 def timeToRun(time_hrs):
+    """ Calculates the time to run in hours, minutes and seconds. """
+
+    # Convert the runtime in hours to seconds
     run_seconds = 500*math.ceil(7.2*time_hrs)
+
+    # Determine the hours, minutes and seconds
     hours = math.floor(run_seconds/3600)
     minutes = math.floor((run_seconds/3600-hours)*60)
     seconds = math.floor(((run_seconds/3600-hours)*60 - minutes)*60)
+
     return hours,minutes,seconds
 
 def makeDirectory(station_code,channel,path):
-    
+    """ Creates a directory. """
+
     # Get the current time
     creation_time = datetime.datetime.utcnow()
     
@@ -90,6 +97,7 @@ class UploadConfig(object):
         
 ##############################################################################################################
 
+# Define an event for wait in order to exit a loop softly
 exit_loop = Event()
 
 if __name__ == "__main__":
@@ -99,6 +107,7 @@ if __name__ == "__main__":
     DEFAULT_PATH = "/home/pi/RadiometerData"
     CONFIG = "config.txt"
     
+    # Enable the custom ctrl+c 
     setSIGINT()
     
     # Init the command line arguments parser
@@ -113,7 +122,7 @@ if __name__ == "__main__":
     arg_group.add_argument('-l', '--loops', metavar='NUMBER_LOOPS', help="""Start capturing right away, 
         with the given duration in loops. """)
         
-    # check to see if a config file was provided
+    # Check to see if a config file was provided
     arg_parser.add_argument('-c', '--config', metavar="FILE_PATH", help="""Read the given config file as, 
         opposed to read the file from the default path. """)
     
@@ -126,14 +135,15 @@ if __name__ == "__main__":
         print("A new directory called RadiometerData has been created to store all data collected.\nIf no config.txt is found in this directory on the next run,\none will be generated and can then be generated and can be altered.\n\nThe program will now close.")
         sys.exit()
     
-    # Check to see if a default config file was given
+    # Check to see if a default config file was given, if so read it
     if cml_args.config:
         rdm_config = readConfig(cml_args.config)
         
-    # Check to see if there is a config file
+    # Check to see if there is a config file in the default location, if so read it
     elif (os.path.isfile(os.path.join(DEFAULT_PATH,CONFIG))):
         rdm_config = readConfig(os.path.join(DEFAULT_PATH,CONFIG))
-        
+    
+    # If no default config file is detected, create one 
     else:
         makeConfig(os.path.join(DEFAULT_PATH,CONFIG))
     
@@ -151,8 +161,8 @@ if __name__ == "__main__":
     elif (os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.zipped)) and (not os.path.isdir(os.path.join(DEFAULT_PATH, rdm_config.raw)))):
         os.mkdir(os.path.join(DEFAULT_PATH, rdm_config.raw),0o755)
     
+    # Create the upload configuration object that will be used by the upload manager
     upload_config = UploadConfig(rdm_config.station_code, rdm_config.hostname, rdm_config.remote_dir, rdm_config.rsa_private_key, rdm_config.upload_queue_file)
-    
         
 ##############################################################################################################
     
@@ -167,9 +177,11 @@ if __name__ == "__main__":
         # Convert the given number of loops to floating point hours by dividing loops by loops per hour
         duration = (float(cml_args.loops))/7.2
 
+    # Create the upload manager
     upload_manager = None
     if rdm_config.upload_enabled:
         # Init the upload manager
+        print("Starting the upload manager!")
         upload_manager = UploadManager(upload_config)
         upload_manager.start()
 
@@ -179,23 +191,29 @@ if __name__ == "__main__":
     # If a duration was given in loops or hours, run for the desired length of time
     if (cml_args.duration or cml_args.loops):
         
+        # Delete the oldest files to make room for the next sessions data
         deleteOldObservations(DEFAULT_PATH, rdm_config.raw, rdm_config.zipped, duration)
         
+        # Create a directory to store the raw data
         stored_path = makeDirectory(rdm_config.station_code, rdm_config.channel, os.path.join(DEFAULT_PATH, rdm_config.raw))
 
+        # Reset the ctrl+c command to its default before entering the c code
         resetSIGINT()
 
-        # ads1256.run returns 0 when its done recording
+        # Sample the radiometer for the given amound of time, ads1256.run returns 0 when its done recording, or 1 for a forced exit, automatically saves data to stored_path
         running = ads1256.run(duration, rdm_config.mode, rdm_config.gain, rdm_config.station_code, rdm_config.channel, rdm_config.latitude, rdm_config.longitude, rdm_config.elevation, rdm_config.instrument_string, stored_path)
 
+        # Enable the custom ctrl+c
         setSIGINT()
         
-        # Compress all files saved
+        # Remove the extra slash used at the end of the path (needs to be there for c code), and convert 
+        # back to single slashes. The last slash is ignored by taking all but the last element
         source = stored_path.replace("//","/")[:-1]
         
         # If the ADC had a faulty exit, end the program
         if running == 1:
             print("\nProgram terminated!\n")
+
         # If it exited safely, zip the data
         else:
             
@@ -213,6 +231,7 @@ if __name__ == "__main__":
 
     # If no duration given, it is assumed to wait for night and run all night.
     else:
+        # Run as long as ctrl+c was not pressed
         while(not STOP_CAPTURE):
             
             # Get a datetime object of exactly when sunset is at -5.5 deg and how long to run for until sunrise in seconds
@@ -220,7 +239,8 @@ if __name__ == "__main__":
             
             # Convert duration to hours
             duration/=3600
-            
+
+            # Delete the oldest files to make room for the next sessions data            
             deleteOldObservations(DEFAULT_PATH, rdm_config.raw, rdm_config.zipped, duration)
             
             # If start_time holds a datetime object as opposed to being True
@@ -231,6 +251,7 @@ if __name__ == "__main__":
                 # Calculate the difference in time between now and when the recording should start
                 waiting_time = start_time - time_now
 
+                # Calculate the amount of time the ADC will record and display to the user
                 hours, minutes, seconds = timeToRun(duration)
 
                 # Let the user know when it will start recording in UTC
@@ -238,6 +259,8 @@ if __name__ == "__main__":
                 
                 # Wait until sunset using the wait time in seconds
                 exit_loop.wait(int(waiting_time.total_seconds()))
+
+                # If ctrl+c was pressed during the waiting event, the script will exit the infinite loop
                 if (STOP_CAPTURE):
                     break
                 
@@ -245,12 +268,13 @@ if __name__ == "__main__":
             # store the data in c, uses two slashes instead of one "/" -> "//"
             stored_path = makeDirectory(rdm_config.station_code, rdm_config.channel, os.path.join(DEFAULT_PATH, rdm_config.raw))
             
+            # Reset the ctrl+c command to its default before entering the c code
             resetSIGINT()
             
-            # ads1256.run returns 0 when its done recording, or 1 for a forced exit, automatically saves data
-            # to stored_path
+            # Sample the radiometer for the given amound of time, ads1256.run returns 0 when its done recording, or 1 for a forced exit, automatically saves data to stored_path
             running = ads1256.run(duration, rdm_config.mode, rdm_config.gain, rdm_config.station_code, rdm_config.channel, rdm_config.latitude, rdm_config.longitude, rdm_config.elevation, rdm_config.instrument_string, stored_path)
             
+            # Enable the custom ctrl+c
             setSIGINT()
             
             # Remove the extra slash used at the end of the path (needs to be there for c code), and convert 
@@ -268,7 +292,7 @@ if __name__ == "__main__":
                 # Creates a composite plot of the nights radiometric data
                 getNightPlot(source)
                 
-                # Zips the files and moves the =m to the archiving directory
+                # Zips the files and moves them and the plots to the archiving directory
                 archive_name = archiveDir(source, os.listdir(source), os.path.join(os.path.join(DEFAULT_PATH, rdm_config.zipped),os.path.split(source)[1]))
                 
                 # Put the archive up for upload
@@ -276,6 +300,7 @@ if __name__ == "__main__":
                     upload_manager.addFiles([archive_name])
             
     # Stop the upload manager
+    print("Upload manager shutting down!")
     if upload_manager.is_alive():
         upload_manager.stop()
         del upload_manager

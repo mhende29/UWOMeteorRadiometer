@@ -269,6 +269,7 @@ if __name__ == "__main__":
     import matplotlib.pyplot as plt
 
     dir_path = "/home/michael/RadiometerData/ArchivedData"
+    server_path = "/home/mhende/UWOMeteorRadiometer"
 
     # Set up input arguments
     #arg_p = argparse.ArgumentParser(description="Analyzes radiometer files.")
@@ -294,6 +295,11 @@ if __name__ == "__main__":
 
     # Parse input arguments
     cml_args = arg_p.parse_args()
+
+    if (os.path.isdir(server_path)):
+        print("Yup")
+
+    sys.exit()
     
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(dir_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)

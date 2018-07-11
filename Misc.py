@@ -54,40 +54,60 @@ def archiveDir(source_dir, file_list, dest_dir, delete_dest_dir=False, extra_fil
     # Make the archive directory
     mkdirP(dest_dir)
     
+    # Define two zero variables to keep track of the zipping and moving progress
     files_zipped = 0
     plots_moved = 0
     
+    # Gather the names of all the .rdm and .png files in the nights folder
     rdm_list = [rdm_file for rdm_file in file_list if rdm_file.endswith(".rdm")]
     rdm_list = sorted(rdm_list)
     plot_list = [plot for plot in file_list if plot.endswith(".png")]
     
+    # Zip all of the .rdm files
     for rdm_file in rdm_list:
-        # Compress the archive
+
+        # Name the compressed file
         archive_file_name = rdm_file + ".tar.bz2"
         
+        # Get the current working directory, should be the directory the github code is stored in
+        # Switch to the nights directory in the capture data directory for zipping to avoid including unnecessary paths
         base_dir = os.getcwd()
         os.chdir(source_dir)
         
+        # Create the zip file in the captured nights directory
         with tarfile.open(archive_file_name, "w:bz2") as tar:
+
+            # Add the .rdm to file to the zipfile
             tar.add(rdm_file)
         
+        # By exiting the with statement, the file is zipped up in the captured nights directory
+
+        # Change back to the original working directory
         os.chdir(base_dir)
         
+        # Move the zipped file from the captured nights directory to the 
+        # archived nights directory made at the beginning of this function
         shutil.move(os.path.join(source_dir, archive_file_name),os.path.join(dest_dir, os.path.split(archive_file_name)[1]))
         
+        # Record that we zipped one more file
         files_zipped += 1
         
+        # Print an update on the percentage to completion
         if(rdm_file is not rdm_list[-1]):
             print("Zipped {:.2%} of files.".format(files_zipped/len(rdm_list)), end = '\r')
         else:
             print("Zipped {:.2%} of files.".format(files_zipped/len(rdm_list)), end = '\n')
 
+    # Move all of the .png files
     for plot in plot_list:
         
+        # Move the .png plots from the captured data directory to the archived data directory
         shutil.move(os.path.join(source_dir, plot), os.path.join(dest_dir, plot))
-        
+       
+        # Record that we moved one more plot
         plots_moved += 1        
         
+        # Print an update on the percentage to completion
         if(plot is not plot_list[-1]):
             print("Moved {:.2%} of plots.".format(plots_moved/len(plot_list)), end = '\r')
         else:

@@ -23,9 +23,20 @@ class RDMConfig(object):
         self.upload_queue_file = None
         self.remote_dir = None
         
+        self.read_from_server = None
 
 def readConfig(config_file_path):
-    
+    """ Generates two plots of the nights data. 
+
+        Input Arguments:
+            
+            -config_file_path (string): The path to the directory that stores the configuration file. Ex: /home/pi/RadiometerData/config.txt
+
+        Outputs:
+
+            - rdm_config (object): The configuration object
+    """    
+    # Create the configuration object
     rdm_config = RDMConfig()
     
     # Create a config object
@@ -53,10 +64,21 @@ def readConfig(config_file_path):
     rdm_config.upload_queue_file = config['Upload']['QueueFilename']
     rdm_config.remote_dir = config['Upload']['RemoteDirectory']
     
+    rdm_config.read_from_server = config['Server']['ReadFromServer']
+    # Return the configuration object
     return rdm_config
         
 def makeConfig(config_file_path):
-        
+    """ Generates two plots of the nights data. 
+
+        Input Arguments:
+            
+            -config_file_path (string): The path to the directory that will store the configuration file. Ex: /home/pi/RadiometerData/config.txt
+
+        Outputs:
+
+            - One config.txt file saved in config_file_path
+    """    
     # There was no detected config file so one will be created
     # An error message explaining the issue
     print("No config file detected in /home/pi/RadiometerData")
@@ -89,6 +111,11 @@ def makeConfig(config_file_path):
         ('RSAPrivateKey', '~/.ssh/id_rsa'),
         ('QueueFilename','FILES_TO_UPLOAD.inf'),
         ('RemoteDirectory','.')
+    ))
+
+    # Creates the upload manager configuration section using default settings
+    config['Server'] = OrderedDict((
+        ('ReadFromServer', 'True')
     ))
         
     # Generate the file in the desired directory and close it

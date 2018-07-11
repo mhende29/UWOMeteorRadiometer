@@ -109,8 +109,6 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, duration):
         data_dir: [str] Path to the RMS data directory which contains the Captured and Archived diretories
         captured_dir: [str] Captured directory name.
         archived_dir: [str] Archived directory name.
-
-    Keyword arguments:
         duration: [float] Duration of next video capturing in seconds. If None (by default), duration will
             be calculated for the next night.
 
