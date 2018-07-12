@@ -7,7 +7,6 @@ import time
 import math
 import datetime
 import argparse
-import configparser
 import ads1256
 import signal
 import sys

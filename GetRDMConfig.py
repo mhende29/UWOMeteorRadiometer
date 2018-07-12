@@ -1,7 +1,16 @@
 import os
 import sys
-import configparser
 from collections import OrderedDict
+
+try:
+    # Python 2
+    import ConfigParser as configparser
+except:
+    # Python 3
+    import configparser
+
+
+
 
 class RDMConfig(object):
     
