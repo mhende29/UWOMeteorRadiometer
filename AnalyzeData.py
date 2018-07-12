@@ -269,14 +269,8 @@ if __name__ == "__main__":
     import matplotlib
     import matplotlib.pyplot as plt
 
-    base_path = "/home/michael/RadiometerData/ArchivedData"
-    server_path = "/home/mhende/UWOMeteorRadiometer"
-
-    # Set up input arguments
-    #arg_p = argparse.ArgumentParser(description="Analyzes radiometer files.")
-    #arg_p.add_argument('rdm_file', type=str, help="Path to the .rdm file.")
-    #arg_p.add_argument('-t', '--time', metavar='TIME', nargs='?', \
-    #    help='Time of the event in the YYYYMMDD-HHMMSS.ms format.', type=str, default=None)
+    archived_data_path = os.path.expanduser("~/RadiometerData/ArchivedData")
+    work_dir = os.getcwd()
     
     # Set up input arguments
     arg_p = argparse.ArgumentParser(description="Get radiometer files.")
@@ -293,54 +287,28 @@ if __name__ == "__main__":
     arg_p.add_argument('range', metavar='DURATION_SECONDS', help="""Grabs data so the total, 
         covers the range/2 on both sides of time. """)
 
-
     # Parse input arguments
     cml_args = arg_p.parse_args()
 
-    if (os.path.isdir(server_path)):
-        if(os.path.isfile(os.path.join(server_path, "config.txt"))):
-            analysis_config = readConfig(os.path.join(server_path, "config.txt"))
-            if(analysis_config.read_from_server):
-                dir_path = os.path.join(os.path.join("/home", "rdm_" + cml_args.code.lower()), "files")
-        else:
-            print("No config file was found on the server!")
-            sys.exit()
-    else:
-        dir_path = base_path
+
+    # Check if there is a config file in the library dir
+    if(os.path.isfile(os.path.join(work_dir, "config.txt"))):
+
+        # Read the config in the lib path
+        analysis_config = readConfig(os.path.join(work_dir, "config.txt"))
+
+        # Check if the server flag is set in the config
+        if(analysis_config.read_from_server):
+            archived_data_path = os.path.join(os.path.join("/home", "rdm_" + cml_args.code.lower()), "files")
     
+    
+    if not os.path.exists(archived_data_path):
+        print('The archved data path: {:s} does not exist!'.format(archived_data_path))
+
+
     # Gather the radiometric data and the time stamps around the given time period
-    intensity, unix_times = getRDMData(dir_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
-    # Read the binary RDM file
-    #rdm, chksum_pass = readRDM(cml_args.rdm_file)
-    
-    # Tell us if the chksum passed
-    #print(chksum_pass)
-    
-    # Print header data
-    #print(rdm.header_size)
-    #print(rdm.format_file_version)
-    #print(rdm.station_code)
-    #print(rdm.channel)
-    #print(rdm.station_latitude)
-    #print(rdm.station_longitude)
-    #print(rdm.station_elevation)
-    #print(rdm.instrument_string)
-    #print(rdm.num_samples)
-    #print(rdm.checksum)
-    
-    #print(rdm.unix_start_s)
-    #print(rdm.unix_start_us)
-    #print(rdm.unix_end_s)
-    #print(rdm.unix_end_us)
-        
-    # Print the tabular data
-    #print(rdm.intensity)
-    #print(rdm.time_s)
-    #print(rdm.time_us)
-    
-    # Convert UNIX times from int to one float
-    #unix_times = rdm.time_s.astype(np.float64) + rdm.time_us.astype(np.float64)/1e6
-    #print(unix_times)
+    intensity, unix_times = getRDMData(archived_data_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
+
 
     # Compute relative time since the beginning of the recording
     time_relative = unix_times - np.min(unix_times)
@@ -351,43 +319,6 @@ if __name__ == "__main__":
     # Compute samples per second
     sps = len(time_relative)/(time_relative[-1] - time_relative[0])
     print('SPS:', sps)
-    
-    # Extract file name
-    # _, file_name = os.path.split(cml_args.rdm_file)
-    # file_name = file_name.replace('.rdm', '')
-
-
-    ### If the time of the event was given, cut +/-20 seconds around the event ###
-
-    # if cml_args.time is not None:
-
-    #     delta_t = 20 # seconds
-
-    #     # Convert the event time string to UNIX time
-    #     unix_t = datestr2UnixTime(cml_args.time)
-
-    #     # Compute the first and the last time
-    #     unix_t_beg = unix_t - delta_t
-    #     unix_t_end = unix_t + delta_t
-
-    #     # Find indices to cut
-    #     beg_ind = np.abs(unix_times - unix_t_beg).argmin()
-    #     end_ind = np.abs(unix_times - unix_t_end).argmin()
-
-
-    #     if beg_ind == end_ind:
-    #         print('The given time is outside the time range of the file!')
-
-    #     else:
-
-    #         rdm.intensity = rdm.intensity[beg_ind:end_ind]
-    #         unix_times = rdm.intensity[beg_ind:end_ind]
-    #         time_relative = time_relative[beg_ind:end_ind]
-
-
-
-    ##########
-
 
 
     # Plot raw data
@@ -505,19 +436,3 @@ if __name__ == "__main__":
     ax3.xaxis.set_ticks_position('bottom')
     plt.xticks(rotation=30)
     plt.show()
-
-#################################################################################################################################################################################################################
-    # Noise Comparison
-
-    # start_time = 267.5
-    # end_time = 277.5
-
-    # lower_bound = ((2**20)*start_time)//500
-    # upper_bound = ((2**20)*end_time)//500
-
-    #data_noise = rdm.intensity[]   
-
-    
-    
-    
-    
