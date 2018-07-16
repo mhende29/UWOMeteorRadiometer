@@ -750,7 +750,7 @@ if __name__ == "__main__":
     unix_times = unix_times[:end_cut] 
 
     # Gather datetime equivalents of the unix times
-    unix_times = [datetime.utcfromtimestamp(t) for t in unix_times]
+    unix_datetimes = [datetime.utcfromtimestamp(t) for t in unix_times]
 
 
 
@@ -793,7 +793,7 @@ if __name__ == "__main__":
     plt.xlim([time_relative[0],time_relative[-1]])
     plt.tick_params(labelbottom=False)
     ax3 = ax2.twiny()
-    ax3.set_xlim(unix_times[0],unix_times[-1])
+    ax3.set_xlim(unix_datetimes[0],unix_datetimes[-1])
     ax3.xaxis.set_ticks_position('bottom')
     plt.xticks(rotation=30)
     plt.show()
