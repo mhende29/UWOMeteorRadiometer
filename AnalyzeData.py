@@ -5,12 +5,15 @@ from __future__ import print_function, division, absolute_import
 import argparse
 import os
 import sys
+import math
+import csv
 from datetime import datetime
 from GetRDMConfig import RDMConfig, readConfig
 
 import numpy as np
 import scipy.signal
 import scipy.optimize
+import scipy.interpolate
 
 from getRDMData import getRDMData
 
@@ -238,11 +241,11 @@ def datestr2UnixTime(time_str, UT_corr=0.0):
 
 
 def sine(t, a, f, phi, c):
-    return a*np.sin(2*np.pi*f*t + phi) + c
+    return np.abs(a)*np.sin(2*np.pi*f*t + phi%(2*np.pi)) + c
 
 
 
-def fitSine(time_data, intensity_data, f0):
+def fitSine(time_data, intensity_data, f0, p0 = None):
     """ Fits a sine to the given data.
 
     Arguments:
@@ -255,23 +258,231 @@ def fitSine(time_data, intensity_data, f0):
     c0 = np.mean(intensity_data)
 
     # Initial guess
-    p0 = [a0, f0, phi0, c0]
+    if(p0 is None):
+        p0 = [a0, f0, phi0, c0]
 
     popt, _ = scipy.optimize.curve_fit(sine, time_data, intensity_data, p0=p0)
+
+    a, f, phi, c = popt
+    popt[0] = np.abs(a)
+    popt[2] = phi%(2*np.pi)
 
     return popt
 
 
+
+def sineSlide(time_data, intensity_data, f0, window_width, shift_width):
+    """ Fits a sines over windows that cover the entire signal to estimate the frequency drift.
+
+    Arguments:
+        time_data: [list of floats] The time stamp of the samples.
+        intensity_data: [list of ints] The intensity of the data.
+        f0: [float] Initial guess of the frequency.
+        window_width: [float] Window width in seconds.
+        shift_width: [float] How far over the window shifts for the next fitting.
+    """ 
+
+    times = []
+    amplitudes = []
+    frequencies = []
+    phases = []
+    offsets = []
+    residuals = []
+
+    time_relative = time_data - np.min(time_data)
+    sps = len(time_relative)/(time_relative[-1] - time_relative[0])  
+    width = math.ceil(sps*window_width)
+    shift = math.ceil(sps*shift_width)
+
+    loops = int((len(intensity_data) - width)//shift)
+
+    print("Data points:", len(intensity_data))
+    print("SPS:", sps)
+    print("Samples per windows:", width)
+    print("Samples per window shift:", shift)
+    print("Number of window shifts:", loops)
+
+    for i in range(loops):
+
+        temp_time = time_relative[int(i*shift): int((i*shift) + width)]
+        temp_data = intensity_data[int(i*shift): int((i*shift) + width)]
+
+        if(i == 0):
+            sine_fit = fitSine(temp_time, temp_data, f0=f0)
+        else:
+            sine_fit = fitSine(temp_time, temp_data, f0=f0, p0 = [amplitudes[i-1], frequencies[i-1], phases[i-1], offsets[i-1]])
+        
+        times.append([temp_time[0] + np.min(time_data), temp_time[-1] + np.min(time_data)])
+        amplitudes.append(sine_fit[0])
+        frequencies.append(sine_fit[1])
+        phases.append(sine_fit[2])
+        offsets.append(sine_fit[3])
+
+        # Compute the sttdev of residuals
+        temp_fit = list(sine_fit)
+        temp_fit[-1] = 0
+        res_data = temp_data - sine(temp_time, *sine_fit)
+
+        # plt.plot(temp_time, temp_data, label='original')
+        # plt.plot(temp_time, temp_data - sine(temp_time, *temp_fit), label='filtered')
+        # plt.plot(temp_time, sine(temp_time, *sine_fit), label='fit')
+        # plt.legend()
+        # plt.show()
+
+        residuals.append(np.std(res_data))
+
+        if(i != (loops - 1)):
+            print("Sines fitted: {:.2%}".format(i/(loops - 1)),end = "\r")
+        else:
+            print("Sines fitted: {:.2%}".format(i/(loops - 1)),end = "\n")
+
+    # Unwrap the phase
+    phases = np.unwrap(phases)
+
+    coefs = [times, amplitudes, frequencies,phases, offsets, residuals]
+
+    return coefs
+
+
+
+def filterInterpolatedSines(time_data, intensity_data, sine_fits):
+
+
+    sine_times_unix, amplitudes, frequencies, phases, offsets = sine_fits
+
+    amp_interp = scipy.interpolate.PchipInterpolator(sine_times_unix, amplitudes)
+    freq_interp = scipy.interpolate.PchipInterpolator(sine_times_unix, frequencies)
+    phase_interp = scipy.interpolate.PchipInterpolator(sine_times_unix, phases)
+    offset_interp = scipy.interpolate.PchipInterpolator(sine_times_unix, offsets)
+
+    fitted_sines = sine(time_data, amp_interp(time_data), freq_interp(time_data), phase_interp(time_data), offset_interp(time_data))
+
+    filtered_data = intensity_data - sine(time_data, amp_interp(time_data), freq_interp(time_data), phase_interp(time_data), np.zeros_like(time_data))
+
+
+    return filtered_data, fitted_sines
+
+
+
+
+def detrend(time_data, intensity_data, coefs):
+
+    time_relative = time_data - np.min(time_data)
+
+    for i in range(len(times)):
+
+        sine_fit = [amplitudes[i], frequencies[i], phases[i], offsets[i]]
+
+        lower_bound = times[i][0]
+        upper_bound = times[i][0]
+
+        # Find indices to cut
+        beg_ind = (np.abs(np.array(time_data) - times[i][0])).argmin()
+        end_ind = (np.abs(np.array(time_data) - times[i][1])).argmin()
+
+
+        #sines = sine_fit['fitfunc'](time_relative[beg_ind:end_ind])
+
+    #print(sines)
+
+
+
+
+    return
+    
+
+
+def test_noise_removal(time_data, intensity_data):
+
+    time_relative = time_data - np.min(time_data)
+    sps = len(time_relative)/(time_relative[-1] - time_relative[0])
+    time_chunk = 1/60
+    samples_per_60Hz = int(math.ceil(sps*time_chunk))
+    print(samples_per_60Hz)
+
+    done = False
+    noise_chunks = []
+    loop_counter = 0
+
+    while done is not True:
+        current_chunk = intensity_data[loop_counter*samples_per_60Hz : (loop_counter + 1)*samples_per_60Hz]
+
+        if(len(current_chunk) == 0):
+            break
+
+        current_chunk_array = np.array(current_chunk)
+
+        if (((current_chunk_array.max() - current_chunk_array.min()) < 8000) and (len(current_chunk) == samples_per_60Hz)):
+            noise_chunks.append(current_chunk)
+
+        loop_counter += 1
+
+    noise_values = np.matrix(noise_chunks)
+    noise_avg = noise_values.mean(0) - (noise_values.mean(0)).min()
+    noise_avg = [noise_avg.item(i) for i in range(36)]
+    noise_avg = np.array(noise_avg)
+
+    loop_counter = 0
+    clean_data = []
+
+    while True:
+
+        if(((loop_counter + 1)*samples_per_60Hz) < (len(intensity_data)-1)):
+            current_chunk = intensity_data[loop_counter*samples_per_60Hz : (loop_counter + 1)*samples_per_60Hz]
+        else:
+            current_chunk = intensity_data[loop_counter*samples_per_60Hz :]
+
+        if(len(current_chunk) == 0):
+            break
+
+        cleaned = current_chunk - noise_avg[0:len(current_chunk)]
+        clean_data.append(cleaned)
+
+
+        loop_counter += 1
+
+    #good_data = [data for data in *clean_data]
+    clean_data  = np.concatenate(clean_data, axis=0)
+
+    print(len(intensity_data))
+    print(len(clean_data))
+
+    return clean_data
+ 
+def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_data):
+    beg_time = datetime.utcfromtimestamp(time_data[0])
+    end_time = datetime.utcfromtimestamp(time_data[-1])
+
+    waiting_time = end_time - beg_time
+    time_dif = int(waiting_time.total_seconds())
+    
+    file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
+    
+    header = ["# Unix Times", "Intensity"]
+
+    data = [[time_data[i], intensity_data[i]] for i in range(len(time_data))]
+
+    with open(os.path.join(dir_path, file_name), 'w') as csvfile:
+        file = csv.writer(csvfile)
+
+        file.writerow(header)
+
+        file.writerows(data)
 
 
 if __name__ == "__main__":
         
     import matplotlib
     import matplotlib.pyplot as plt
-
-    archived_data_path = os.path.expanduser("~/RadiometerData/ArchivedData")
-    work_dir = os.getcwd()
+    import matplotlib.image as mpimg
     
+    archived_data_path = os.path.expanduser("~/RadiometerData/ArchivedData")
+
+    work_dir = os.getcwd()
+    home_dir = os.path.dirname(work_dir)
+    csv_storage_dir = "Exported_Data"
+    csv_path = os.path.join(home_dir,csv_storage_dir)
+
     # Set up input arguments
     arg_p = argparse.ArgumentParser(description="Get radiometer files.")
 
@@ -287,9 +498,11 @@ if __name__ == "__main__":
     arg_p.add_argument('range', metavar='DURATION_SECONDS', help="""Grabs data so the total, 
         covers the range/2 on both sides of time. """)
 
+    arg_p.add_argument('-e', action = 'store_true', help="""If enabled produces and exports a csv file.""")
+
+    arg_p.add_argument('-n', action = 'store_true', help="""Loads the night plots.""")
     # Parse input arguments
     cml_args = arg_p.parse_args()
-
 
     # Check if there is a config file in the library dir
     if(os.path.isfile(os.path.join(work_dir, "config.txt"))):
@@ -303,12 +516,33 @@ if __name__ == "__main__":
     
     
     if not os.path.exists(archived_data_path):
-        print('The archved data path: {:s} does not exist!'.format(archived_data_path))
-
+        print('The archived data path: {:s} does not exist!'.format(archived_data_path))
 
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(archived_data_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
 
+    if(cml_args.e is True):
+        if(not os.path.isdir(csv_path)):
+            os.mkdir(csv_path, 0o755)
+        export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity)
+
+    if(cml_args.n is True):
+        yr_mon_day = cml_args.time[:8]
+
+        night = [folder for folder in os.listdir(archived_data_path) if(folder.startswith(cml_args.code  + "_" + cml_args.channel + "_" + yr_mon_day))]
+
+        pngs = [plot for plot in os.listdir(os.path.join(archived_data_path, *night)) if(plot.endswith(".png"))]
+
+        night_plot = os.path.join(os.path.join(archived_data_path, *night),pngs[0])
+        max_minus = os.path.join(os.path.join(archived_data_path, *night),pngs[1])
+
+        img = mpimg.imread(night_plot)
+        plt.imshow(img)
+        plt.show()
+
+        img = mpimg.imread(max_minus)
+        plt.imshow(img)
+        plt.show()
 
     # Compute relative time since the beginning of the recording
     time_relative = unix_times - np.min(unix_times)
@@ -320,6 +554,137 @@ if __name__ == "__main__":
     sps = len(time_relative)/(time_relative[-1] - time_relative[0])
     print('SPS:', sps)
 
+    #clean_data = test_noise_removal(unix_times, intensity)
+
+    #plt.plot(unix_times, intensity)
+    #plt.plot(unix_times, clean_data)
+    #plt.show()
+
+    
+    # filtered_data = np.array(intensity)
+
+    # for i in range(1):
+
+    #     # Fit the sines by sliding a window
+    #     coefs = sineSlide(unix_times, filtered_data, f0 = (i + 1)*60, window_width = 1.0, shift_width = 0.1)
+        
+
+    #     #detrend(unix_times, intensity, coefs)
+
+
+    #     times, amplitudes, frequencies,phases, offsets, residuals = coefs
+
+    #     sine_times_unix = [t for t in np.mean(np.array(times), axis = 1)]
+    #     sine_times = [datetime.utcfromtimestamp(t) for t in sine_times_unix]
+
+    #     sine_fits = [sine_times_unix, amplitudes, frequencies, phases, offsets]
+
+    #     # Filter original data with fitted sines
+    #     filtered_data, fitted_sines = filterInterpolatedSines(unix_times, filtered_data, sine_fits)
+
+
+    # plt.plot(unix_times, intensity, linewidth=0.2)
+    # plt.plot(unix_times, filtered_data, linewidth=0.2)
+    # #plt.plot(unix_times, fitted_sines,linewidth=0.2)
+    # plt.show()
+
+
+    # fig, (ax1, ax2) = plt.subplots(nrows=2)
+    # ax1.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=16)
+    # ax2.specgram(filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=16)
+
+    # plt.show()
+
+
+
+    # #######################################################################################################################################################################################
+
+
+
+    # plt.plot(sine_times, frequencies, linewidth=0.2)
+    
+    # if(cml_args.time.find(".") is not -1):
+    #     title = ("Frequency profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
+    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
+    #     newmicros = micros.rstrip("0")
+    #     title = title.replace(micros, newmicros)
+    # else:
+    #     title = "Frequency profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
+
+    # plt.title(title)
+    # plt.ylabel('Frequency')
+    # plt.xlabel('Time')
+    # plt.xticks(rotation=30)
+    # plt.show()
+
+    # plt.plot(sine_times, amplitudes, linewidth=0.2)
+    
+    # if(cml_args.time.find(".") is not -1):
+    #     title = ("Amplitude profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
+    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
+    #     newmicros = micros.rstrip("0")
+    #     title = title.replace(micros, newmicros)
+    # else:
+    #     title = "Amplitude profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
+
+    # plt.title(title)
+    # plt.ylabel('Amplitude')
+    # plt.xlabel('Time')
+    # plt.xticks(rotation=30)
+    # plt.show()
+
+    # plt.plot(sine_times, phases, linewidth=0.2)
+    
+    # if(cml_args.time.find(".") is not -1):
+    #     title = ("Phase profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
+    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
+    #     newmicros = micros.rstrip("0")
+    #     title = title.replace(micros, newmicros)
+    # else:
+    #     title = "Phase profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
+
+    # plt.title(title)
+    # plt.ylabel('Phase')
+    # plt.xlabel('Time')
+    # plt.xticks(rotation=30)
+    # plt.show()
+
+    # plt.plot(sine_times, offsets, linewidth=0.2)
+    
+    # if(cml_args.time.find(".") is not -1):
+    #     title = ("Offset profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
+    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
+    #     newmicros = micros.rstrip("0")
+    #     title = title.replace(micros, newmicros)
+    # else:
+    #     title = "Offset profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
+
+    # plt.title(title)
+    # plt.ylabel('Offset')
+    # plt.xlabel('Time')
+    # plt.xticks(rotation=30)
+    # plt.show()
+
+
+
+    # plt.plot(sine_times, residuals, linewidth=0.2)
+
+    # if(cml_args.time.find(".") is not -1):
+    #     title = ("Residuals profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
+    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
+    #     newmicros = micros.rstrip("0")
+    #     title = title.replace(micros, newmicros)
+    # else:
+    #     title = "Residuals profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
+
+    # plt.title(title)
+    # plt.ylabel('Stddev')
+    # plt.xlabel('Time')
+    # plt.xticks(rotation=30)
+    # plt.show()
+    
+    # sys.exit()
+    #######################################################################################################################################################################################
 
     # Plot raw data
     # Checks if there's a period in the given string in order to decide if micro-seconds should be incorporated.
@@ -399,16 +764,6 @@ if __name__ == "__main__":
 
     # Print the filtered data
     print(filtered_data)
-
-    # # Fit a sine
-    # sine_fit = fitSine(time_relative[int(len(time_relative)*0.1):], filtered_data[int(len(time_relative)*0.1):], guess_freq=0.5)
-
-    # plt.plot(time_relative, filtered_data)
-    # plt.plot(time_relative, sine_fit['fitfunc'](time_relative))
-
-    # plt.show()
-
-    # #filtered_data -= sine_fit['fitfunc'](time_relative)
 
 
     # Plot filtered spectrogram
