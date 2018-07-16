@@ -449,14 +449,17 @@ def test_noise_removal(time_data, intensity_data):
 
     return clean_data
  
-def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_data):
+def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_data, filtered):
     beg_time = datetime.utcfromtimestamp(time_data[0])
     end_time = datetime.utcfromtimestamp(time_data[-1])
 
     waiting_time = end_time - beg_time
     time_dif = int(waiting_time.total_seconds())
     
-    file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
+    if(filtered):
+        file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}_filtered.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
+    else:
+        file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
     
     header = ["# Unix Times", "Intensity"]
 
@@ -521,10 +524,13 @@ if __name__ == "__main__":
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(archived_data_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
 
+    filtered = False
+
     if(cml_args.e is True):
         if(not os.path.isdir(csv_path)):
             os.mkdir(csv_path, 0o755)
-        export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity)
+        export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
+        filtered = True
 
     if(cml_args.n is True):
         yr_mon_day = cml_args.time[:8]
@@ -791,3 +797,8 @@ if __name__ == "__main__":
     ax3.xaxis.set_ticks_position('bottom')
     plt.xticks(rotation=30)
     plt.show()
+
+    if(cml_args.e is True):
+        if(not os.path.isdir(csv_path)):
+            os.mkdir(csv_path, 0o755)
+        export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
