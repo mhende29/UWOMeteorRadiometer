@@ -796,7 +796,7 @@ if __name__ == "__main__":
     # Plot filtered data
     ax2 = plt.subplot(212, sharex = ax1)
     plt.plot(time_relative, filtered_data, label='Filtered Data')
-    plt.plot(time_relative, mean_std, linestyle='--', label='Two sigma threshold')
+    plt.plot(time_relative, mean_std, linestyle='--', label=r'Two $\sigma$ threshold')
     plt.legend(loc = 0)
     plt.xlabel('Time (s)')
     plt.ylabel('ADU')
