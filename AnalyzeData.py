@@ -24,7 +24,7 @@ def initNotchFilter(sps, freq, band, ripple, order, filter_type):
         sps: [float] Samples per second.
         freq: [float] Middle frequency of the filter in Hz.
         band: [float] Width of the band in Hz.
-        ripple: [foat] Ripple in the bandpass.
+        ripple: [float] Ripple in the bandpass.
         order: [int] Filter order.
         filter_type: [str] Filter type, e.g. 'cheby1'
 
@@ -101,7 +101,7 @@ def filterBandpass(data, sps, bandpass_low, bandpass_high, order=6):
 
 
 
-def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=None):
+def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=None, low_pass_cutoff=500):
     """ Filter out the light pollution using Chebyshev filters. 
     
     Arguments:
@@ -132,7 +132,7 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=Non
 
         # If the lowpass filter is on, skip all frequencies above 5x the mains frequency
         if lowpass:
-            if f_har > 5*mains_freq:
+            if f_har > 2*low_pass_cutoff:
                 continue
 
         # Set proper filter band width, depending on the harmonic number (first ones are wider)
@@ -151,7 +151,7 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=Non
 
             # If the lowpass filter is on, skip all frequencies above 5x the mains frequency
             if lowpass:
-                if freq > 5*mains_freq:
+                if freq > 2*low_pass_cutoff:
                     continue
 
             filters_params.append([sps, freq, band, ripple, filter_order, filter_type])
@@ -180,7 +180,7 @@ def filterLP(data, sps, mains_freq, lowpass=True, filter_order=3, additional=Non
         ### Apply a lowpass filter which will filter out everything above the grid frequency ###
 
         # Init the lowpass filter
-        Wn = mains_freq/(sps/2.0)
+        Wn = low_pass_cutoff/(sps/2.0)
         b, a = scipy.signal.butter(6, Wn)
 
         # Filter the data
@@ -543,11 +543,19 @@ if __name__ == "__main__":
         max_minus = os.path.join(os.path.join(archived_data_path, *night),pngs[1])
 
         img = mpimg.imread(night_plot)
-        plt.imshow(img)
+        fig = plt.imshow(img)
+        fig.axes.get_xaxis().set_visible(False)
+        fig.axes.get_yaxis().set_visible(False)
+        plt.tight_layout()
+        plt.box(on=None)
         plt.show()
 
         img = mpimg.imread(max_minus)
-        plt.imshow(img)
+        fig = plt.imshow(img)
+        fig.axes.get_xaxis().set_visible(False)
+        fig.axes.get_yaxis().set_visible(False)
+        plt.tight_layout()
+        plt.box(on=None)
         plt.show()
 
     # Compute relative time since the beginning of the recording
@@ -702,15 +710,14 @@ if __name__ == "__main__":
     else:
         title = "Unfiltered data within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
 
+    # Plot the spectrogram
     ax1 = plt.subplot(211)
-    plt.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=2048, noverlap=0)
+    plt.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
     plt.title(title)
     plt.ylabel('Frequency (Hz)')
     plt.tick_params(bottom=False, labelbottom=False)
     plt.subplots_adjust(hspace=0)
-    
 
-    # Plot the spectrogram
     ax2 = plt.subplot(212, sharex = ax1)
     plt.plot(time_relative, intensity,linewidth=0.2)
     plt.ylabel('ADU')
@@ -774,7 +781,7 @@ if __name__ == "__main__":
 
     # Plot filtered spectrogram
     ax1 = plt.subplot(211)
-    plt.specgram(filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=2048, noverlap=0)
+    plt.specgram(filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
     title = title.replace("Unfiltered", "Filtered")
     plt.title(title)
     plt.tick_params(bottom=False, labelbottom=False)
@@ -784,10 +791,13 @@ if __name__ == "__main__":
     #plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
     #plt.show()
 
+    mean_std = (np.mean(filtered_data) + np.std(filtered_data))*np.ones_like(time_relative)
 
     # Plot filtered data
     ax2 = plt.subplot(212, sharex = ax1)
-    plt.plot(time_relative, filtered_data)
+    plt.plot(time_relative, filtered_data, label='Filtered Data')
+    plt.plot(time_relative, mean_std, linestyle='--', label='Two sigma threshold')
+    plt.legend(loc = 0)
     plt.xlabel('Time (s)')
     plt.ylabel('ADU')
     plt.xlim([time_relative[0],time_relative[-1]])
