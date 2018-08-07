@@ -1,3 +1,5 @@
 *.o
+*.pyc
 
 build/
+__pycache__/

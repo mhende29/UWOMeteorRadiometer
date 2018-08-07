@@ -5,17 +5,23 @@
 # Distributed under the (new) BSD License. See LICENSE.txt for more info.
 
 """
-Multiple real-time digital signals with GLSL-based clipping.
+Read the signal from the radiometer in real-time and show it on the screen.
 """
 
-import ads1256
+from __future__ import print_function, division, absolute_import
+
 import os
+import sys
+import math
+
+import numpy as np
 import vispy
 from vispy import gloo
 from vispy import app
+
+import ads1256
 from GetRDMConfig import RDMConfig, readConfig
-import numpy as np
-import math
+
 
 DEFAULT_PATH = "/home/pi/RadiometerData"
 CONFIG = "config.txt"
@@ -42,8 +48,22 @@ data_min=1
 data_max=-1
 height=0
 
-rdm_config = readConfig(os.path.join(DEFAULT_PATH,CONFIG))
 
+# Config file path
+config_path = os.path.join(DEFAULT_PATH,CONFIG)
+
+
+# Check if the config file exists
+if not os.path.isfile(config_path):
+    print('The configuruation file does not exits: ', config_path)
+    print('Run the RadiometerRun.py script to generate a config file and edit it using appropriate values.')
+    sys.exit()
+
+# Read the config file
+rdm_config = readConfig(config_path)
+
+
+# Init the ADC
 ads1256.init(rdm_config.gain,sps, rdm_config.mode)
 ads1256.init_channel(channel)
 

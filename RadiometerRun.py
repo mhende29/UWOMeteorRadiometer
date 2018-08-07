@@ -1,4 +1,4 @@
-
+""" Main program that manages radiometric recording and data management. """
 
 from __future__ import print_function, absolute_import
 
@@ -130,8 +130,13 @@ if __name__ == "__main__":
     
     # Check if the home directory exists, if not create it and exit
     if (not os.path.isdir(DEFAULT_PATH)):
+        
         os.mkdir(DEFAULT_PATH,0o755)
-        print("A new directory called RadiometerData has been created to store all data collected.\nIf no config.txt is found in this directory on the next run,\none will be generated and can then be generated and can be altered.\n\nThe program will now close.")
+        print("A new directory called RadiometerData has been created to store all data collected.")
+        print("If no config.txt is found in this directory on the next run, one will be generated and it should be edited appropriately.")
+        print()
+        print("The program will now close.")
+        
         sys.exit()
     
     # Check to see if a default config file was given, if so read it

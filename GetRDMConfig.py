@@ -74,6 +74,7 @@ def readConfig(config_file_path):
     rdm_config.remote_dir = config['Upload']['RemoteDirectory']
     
     rdm_config.read_from_server = config['Server']['ReadFromServer']
+    
     # Return the configuration object
     return rdm_config
         
@@ -124,7 +125,7 @@ def makeConfig(config_file_path):
 
     # Creates the upload manager configuration section using default settings
     config['Server'] = OrderedDict((
-        ('ReadFromServer', 'True')
+        ('ReadFromServer', 'False'),
     ))
         
     # Generate the file in the desired directory and close it
