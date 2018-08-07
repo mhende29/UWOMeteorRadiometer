@@ -60,13 +60,12 @@ def getNightDirs(dir_path):
 
 
 
-def deleteNightFolders(dir_path, capture_flag, delete_all=False):
+def deleteNightFolders(dir_path, delete_all=False):
     """ Deletes captured data directories to free up disk space. Either only one directory will be deleted
         (the oldest one), or all directories will be deleted (if delete_all = True).
 
     Arguments:
         dir_path: [str] Path to the data directory.
-        config: [COnfiguration object]
 
     Keyword arguments:
         delete_all: [bool] If True, all data folders will be deleted. False by default.
@@ -79,23 +78,15 @@ def deleteNightFolders(dir_path, capture_flag, delete_all=False):
     # Get the list of night directories
     dir_list = getNightDirs(dir_path)
 
-    if (capture_flag == 0):
-        # Delete the saving directories if the macro file, CaptureData or ArchivingData
-        for dir_name in dir_list:
-            
-            shutil.rmtree(os.path.join(dir_path,dir_name))
-    
-            # If only one (first) file should be deleted, break the loop
-            if not delete_all:
-                break
-    else:
-        for dir_name in dir_list:
-            
-            shutil.rmtree(os.path.join(dir_path,dir_name))
-    
-            # If only one (first) file should be deleted, break the loop
-            if not delete_all:
-                break
+    # Delete the saving directories if the macro file, CaptureData or ArchivingData
+    for dir_name in dir_list:
+        bytes_before = availableSpace(data_dir)
+        shutil.rmtree(os.path.join(dir_path,dir_name))
+        byte_change = bytes_before - availableSpace(data_dir)
+        print("Removing {s} to free {:} bytes, leaving {:} free bytes.".format(os.path.join(dir_path,dir_name), byte_change, availableSpace(data_dir)))
+        # If only one (first) file should be deleted, break the loop
+        if not delete_all:
+            break
 
     # Return the list of remaining night directories
     return getNightDirs(dir_path)
@@ -131,14 +122,14 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, duration):
     next_night_bytes = int(loops*RDM_SIZE)
 
     # Always leave at least 1 GB free for archive
-    next_night_bytes += 1024**3
+    next_night_bytes += 5*(1024**3)
     
+    print("Space required for the next night is {:} bytes\nand the space available is {:} bytes.".format(next_night_bytes, availableSpace(data_dir)))
+
     # If there's enough free space, don't do anything
     if availableSpace(data_dir) > next_night_bytes:
+        print("There is adequate space available.")
         return True
-        
-    # Create a flag to tell if all captured data was deleted
-    capture_cleared = 0
     
     # Get the current directories
     captured_dirs_remaining = getNightDirs(captured_dir)
@@ -150,30 +141,17 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, duration):
         if not (len(captured_dirs_remaining) == 0):
             
             # Delete one captured file or an empty captured directory
-            captured_dirs_remaining = deleteNightFolders(captured_dir, capture_cleared)
-            
-            # Check if the Captured Data directory is empty
-            if (len(captured_dirs_remaining) == 0):
-                # Since the captured data directory is empty, set the variable to true
-                capture_cleared = 1
+            captured_dirs_remaining = deleteNightFolders(captured_dir)
+            archived_dirs_remaining = deleteNightFolders(archived_dir)
             
             # Break the there's enough space
             if availableSpace(data_dir) > next_night_bytes:
                 break
 
-        # If there's no more raw capture files left start deleting the oldest compressed files
-        else:
-            # Delete one archived file or an empty captured directory
-            archived_dirs_remaining = deleteNightFolders(archived_dir, capture_cleared)
-        
-            # Break the there's enough space
-            if availableSpace(data_dir) > next_night_bytes:
-                break
-            
-            # If for some reason both are empty and theres no room, exit
-            if ((len(captured_dirs_remaining) == 0) and (len(archived_dirs_remaining) == 0)):
+            if ((len(captured_dirs_remaining) == 0) or (len(archived_dirs_remaining) == 0)):
                 print("Program terminating, insufficient memory to run program. Memory must be cleared manually.")
                 sys.exit()
+            
                 
     return True
 

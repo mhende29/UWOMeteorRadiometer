@@ -57,14 +57,18 @@ def getNightPlot(file_path):
 
 		# Compute the moving average
 		intensity = movingAverage(rdm.intensity, 256)
-
+		print(len(intensity))
 		# Compute the data averages and peaks by binning in order to reduce the amount of data plotted by 8192 times
 		for i in range(0,loops):
+
 			temp_data = intensity[i*bin_size:(i+1)*bin_size]
 			temp_time = time[i*bin_size:(i+1)*bin_size]
-			data_peaks.append(temp_data.max())
-			data_average.append(np.average(temp_data))
-			data_times.append(np.average(temp_time))
+
+			if(len(temp_data) != 0):
+				data_peaks.append(temp_data.max())
+				data_average.append(np.average(temp_data))
+				data_times.append(np.average(temp_time))
+			
 		files_left -= 1
 
 		# Update on the averaging process
