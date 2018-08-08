@@ -82,7 +82,7 @@ def deleteNightFolders(dir_path, delete_all=False):
     for dir_name in dir_list:
         bytes_before = availableSpace(dir_path)
         shutil.rmtree(os.path.join(dir_path,dir_name))
-        byte_change = bytes_before - availableSpace(dir_path)
+        byte_change = availableSpace(dir_path) - bytes_before
         print("Removing {} to free {:} bytes, leaving {:} free bytes.".format(os.path.join(dir_path,dir_name), byte_change, availableSpace(dir_path)))
         # If only one (first) file should be deleted, break the loop
         if not delete_all:
