@@ -40,7 +40,8 @@ def getNightPlot(file_path):
 	data_times = []
 	raw_data = []
 	raw_time = []
-	
+	zeros_index = []
+
 	# We have 4 MB of data per file which translates to 1048576 or 2^20, since we're taking bins 64 samples which is 2^6 samples
 	# we will need to run 2^20/2^6 loops which is 2^(20-6) = 2^14 loops per file
 	bin_size = 8192 
@@ -57,7 +58,9 @@ def getNightPlot(file_path):
 
 		# Compute the moving average
 		intensity = movingAverage(rdm.intensity, 256)
-		print(len(intensity))
+
+
+
 		# Compute the data averages and peaks by binning in order to reduce the amount of data plotted by 8192 times
 		for i in range(0,loops):
 
@@ -73,7 +76,7 @@ def getNightPlot(file_path):
 
 		# Update on the averaging process
 		print("{:.2%} Complete".format(1.0-files_left/float(file_size)))
-	
+
 	# Convert the averages and peaks to arrays	
 	data_average = np.array(data_average)
 	data_peaks = np.array(data_peaks)
@@ -101,8 +104,18 @@ def getNightPlot(file_path):
 	plt.savefig(os.path.join(file_path, "NightPlot_{:s}.png".format(data_times[0].strftime('%Y%m%d'))), dpi=300)
 	plt.close()
 
+	# Determine if 
+	zeros_index = [i for i in range(len(data_average)) if(data_average[i] == 0)]
+	
 	# Plot the max/minus of the data (shows where peaks are more clearly)
-	plt.plot(data_times[1:-1], data_peaks[1:-1] - (data_average[:-2]+data_average[2:])/2)
+	max_minus = data_peaks[1:-1] - (data_average[:-2]+data_average[2:])/2
+
+	# If for some reason there is garbage data in the average set the max_minus at those locations to 0, +/-2 to cover the sides as well
+	if (len(zeros_index)!=0):
+		for zeros in zeros_index:
+			max_minus[zeros-2:zeros+2] = 0
+
+	plt.plot(data_times[1:-1], max_minus)
 	plt.grid(which = "both")
 	plt.xticks(rotation=30)
 	plt.xlabel('Time')

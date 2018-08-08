@@ -146,12 +146,15 @@ def deleteOldObservations(data_dir, captured_dir, archived_dir, duration):
             
             # Break the there's enough space
             if availableSpace(data_dir) > next_night_bytes:
+                print("There is now adequate space available.")
                 break
 
             if ((len(captured_dirs_remaining) == 0) or (len(archived_dirs_remaining) == 0)):
                 print("Program terminating, insufficient memory to run program. Memory must be cleared manually.")
                 sys.exit()
-            
+        else:
+            print("Program terminating, insufficient memory to run program. Memory must be cleared manually.")
+            sys.exit()
                 
     return True
 
