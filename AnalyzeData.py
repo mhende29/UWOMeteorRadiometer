@@ -453,6 +453,9 @@ if __name__ == "__main__":
     cml_args = arg_p.parse_args()
 
 
+    cml_args.range = cml_args.range[0]
+
+
     ##########################################################################################################
 
     # Check if there is a config file in the library dir
@@ -474,7 +477,7 @@ if __name__ == "__main__":
 
     # Assign the mains frequency hum if given
     if cml_args.mainsfreq:
-        config.mains_frequency = cml_args.mainsfreq
+        config.mains_frequency = cml_args.mainsfreq[0]
     
     
     if not os.path.exists(archived_data_path):
