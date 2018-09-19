@@ -17,6 +17,9 @@ import scipy.interpolate
 
 from getRDMData import getRDMData
 
+
+
+
 def initNotchFilter(sps, freq, band, ripple, order, filter_type):
     """ Initializes a noth filter with the given parameters.
 
@@ -363,32 +366,6 @@ def filterInterpolatedSines(time_data, intensity_data, sine_fits):
     return filtered_data, fitted_sines
 
 
-
-
-def detrend(time_data, intensity_data, coefs):
-
-    time_relative = time_data - np.min(time_data)
-
-    for i in range(len(times)):
-
-        sine_fit = [amplitudes[i], frequencies[i], phases[i], offsets[i]]
-
-        lower_bound = times[i][0]
-        upper_bound = times[i][0]
-
-        # Find indices to cut
-        beg_ind = (np.abs(np.array(time_data) - times[i][0])).argmin()
-        end_ind = (np.abs(np.array(time_data) - times[i][1])).argmin()
-
-
-        #sines = sine_fit['fitfunc'](time_relative[beg_ind:end_ind])
-
-    #print(sines)
-
-
-
-
-    return
     
  
 def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_data, filtered):
@@ -413,6 +390,8 @@ def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_
         file.writerow(header)
 
         file.writerows(data)
+
+
 
 def psd_fun(coefs, x, y=None):
     if(y is not None): 
@@ -446,32 +425,56 @@ if __name__ == "__main__":
     arg_p = argparse.ArgumentParser(description="Get radiometer files.")
 
     arg_p.add_argument('code', metavar='CODE', nargs='?', \
-        help='Time of the event in the YYYYMMDD-HHMMSS.ms format.', type=str, default=None)
+        help="""Radiometer station code, e.g. US0001. The first two letters are the ISO code of the country, 
+        and the last 4 characters is the alphanumeric code of the station.""", type=str, default=None)
 
     arg_p.add_argument('channel', metavar='CHANNEL', nargs='?', \
-        help='Time of the event in the YYYYMMDD-HHMMSS.ms format.', type=str, default=None)
+        help='Channel of the station. Only single letters are accepted, such as A, B, C, etc.', type=str, \
+        default=None)
 
     arg_p.add_argument('time', metavar='TIME', nargs='?', \
-        help='Time of the event in the YYYYMMDD-HHMMSS.ms format.', type=str, default=None)
+        help="""Time of the event in the YYYYMMDD-HHMMSS.ms format. Data will be centred around this time. 
+        """, type=str, default=None)
 
-    arg_p.add_argument('range', metavar='DURATION_SECONDS', help="""Grabs data so the total, 
-        covers the range/2 on both sides of time. """)
+    arg_p.add_argument('range', metavar='DURATION_SECONDS', type=float,
+        help="""Duration in seconds of the data chunk that will be taken. The data will be taken in the range 
+        of (-range/2, range/2), centered around the given time.""")
+
+    arg_p.add_argument('-f', '--mainsfreq', metavar='MAINS_FREQ', nargs='1', \
+        help="Frequency of the mains hum.", type=float)
 
     arg_p.add_argument('-e', action = 'store_true', help="""If enabled produces and exports a csv file.""")
 
-    arg_p.add_argument('-n', action = 'store_true', help="""Loads the night plots.""")
+    arg_p.add_argument('-n', action = 'store_true', help="""Loads the night plots. They show an overview of
+        all recorded intensities during the night.""")
+    
+
     # Parse input arguments
     cml_args = arg_p.parse_args()
+
+
+    ##########################################################################################################
 
     # Check if there is a config file in the library dir
     if(os.path.isfile(os.path.join(work_dir, "config.txt"))):
 
         # Read the config in the lib path
-        analysis_config = readConfig(os.path.join(work_dir, "config.txt"))
+        config = readConfig(os.path.join(work_dir, "config.txt"))
 
         # Check if the server flag is set in the config
-        if(analysis_config.read_from_server):
+        if(config.read_from_server):
             archived_data_path = os.path.join(os.path.join("/home", "rdm_" + cml_args.code.lower()), "files")
+
+
+    # If the config does not exist, load defualt values
+    else:
+        config = RDMConfig()
+
+
+
+    # Assign the mains frequency hum if given
+    if cml_args.mainsfreq:
+        config.mains_frequency = cml_args.mainsfreq
     
     
     if not os.path.exists(archived_data_path):
@@ -535,8 +538,8 @@ if __name__ == "__main__":
     plt.clf()
 
     # Generate an array that contains the frequencies found in the mains hum
-    # Mains hum being the 60 Hz interference and its higher order harmonics 
-    mains_hum = np.arange(60,fs/2,60)
+    # Mains hum being the 60/50 Hz interference and its higher order harmonics 
+    mains_hum = np.arange(config.mains_frequency, fs/2, config.mains_frequency)
 
     # Convert the powers into decibels (dB)
     power_db = 10*np.log10(p_xx)
@@ -626,7 +629,7 @@ if __name__ == "__main__":
                 good_filtered_data = np.copy(filtered_data)
             else:
                 filtered_data = np.copy(good_filtered_data)
-                Q += mains_hum[i]/60
+                Q += mains_hum[i]/config.mains_frequency
         i += 1
 
     print("All frequencies filtered!")
@@ -642,7 +645,7 @@ if __name__ == "__main__":
     # Calculate the mean power using the least-squares solution
     background_level = back_fun(res_lsq_back.x, time_relative)
 
-    # Calculate number of samples in window, since the main harmonice is 60Hz which is 1/60s, that will be the smallest window we should use 
+    # Calculate number of samples in window, since the main harmonice is 60/50 Hz which is 1/freq s, that will be the smallest window we should use 
     window_width = int(fs/mains_hum[0])
     window_shift = int(window_width/2.0)
 
@@ -795,249 +798,3 @@ if __name__ == "__main__":
     plt.plot(freqs,power_lower_lim, linestyle = '--', color = 'm')
     plt.plot(freqs,power_upper_lim, linestyle = '--', color = 'm')
     plt.show()
-
-    sys.exit()
-    #clean_data = test_noise_removal(unix_times, intensity)
-
-    #plt.plot(unix_times, intensity)
-    #plt.plot(unix_times, clean_data)
-    #plt.show()
-
-    
-    # filtered_data = np.array(intensity)
-
-    # for i in range(1):
-
-    #     # Fit the sines by sliding a window
-    #     coefs = sineSlide(unix_times, filtered_data, f0 = (i + 1)*60, window_width = 1.0, shift_width = 0.1)
-        
-
-    #     #detrend(unix_times, intensity, coefs)
-
-
-    #     times, amplitudes, frequencies,phases, offsets, residuals = coefs
-
-    #     sine_times_unix = [t for t in np.mean(np.array(times), axis = 1)]
-    #     sine_times = [datetime.utcfromtimestamp(t) for t in sine_times_unix]
-
-    #     sine_fits = [sine_times_unix, amplitudes, frequencies, phases, offsets]
-
-    #     # Filter original data with fitted sines
-    #     filtered_data, fitted_sines = filterInterpolatedSines(unix_times, filtered_data, sine_fits)
-
-
-    # plt.plot(unix_times, intensity, linewidth=0.2)
-    # plt.plot(unix_times, filtered_data, linewidth=0.2)
-    # #plt.plot(unix_times, fitted_sines,linewidth=0.2)
-    # plt.show()
-
-
-    # fig, (ax1, ax2) = plt.subplots(nrows=2)
-    # ax1.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=16)
-    # ax2.specgram(filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=16)
-
-    # plt.show()
-
-
-
-    # #######################################################################################################################################################################################
-
-
-
-    # plt.plot(sine_times, frequencies, linewidth=0.2)
-    
-    # if(cml_args.time.find(".") is not -1):
-    #     title = ("Frequency profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
-    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
-    #     newmicros = micros.rstrip("0")
-    #     title = title.replace(micros, newmicros)
-    # else:
-    #     title = "Frequency profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
-
-    # plt.title(title)
-    # plt.ylabel('Frequency')
-    # plt.xlabel('Time')
-    # plt.xticks(rotation=30)
-    # plt.show()
-
-    # plt.plot(sine_times, amplitudes, linewidth=0.2)
-    
-    # if(cml_args.time.find(".") is not -1):
-    #     title = ("Amplitude profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
-    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
-    #     newmicros = micros.rstrip("0")
-    #     title = title.replace(micros, newmicros)
-    # else:
-    #     title = "Amplitude profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
-
-    # plt.title(title)
-    # plt.ylabel('Amplitude')
-    # plt.xlabel('Time')
-    # plt.xticks(rotation=30)
-    # plt.show()
-
-    # plt.plot(sine_times, phases, linewidth=0.2)
-    
-    # if(cml_args.time.find(".") is not -1):
-    #     title = ("Phase profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
-    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
-    #     newmicros = micros.rstrip("0")
-    #     title = title.replace(micros, newmicros)
-    # else:
-    #     title = "Phase profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
-
-    # plt.title(title)
-    # plt.ylabel('Phase')
-    # plt.xlabel('Time')
-    # plt.xticks(rotation=30)
-    # plt.show()
-
-    # plt.plot(sine_times, offsets, linewidth=0.2)
-    
-    # if(cml_args.time.find(".") is not -1):
-    #     title = ("Offset profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
-    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
-    #     newmicros = micros.rstrip("0")
-    #     title = title.replace(micros, newmicros)
-    # else:
-    #     title = "Offset profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
-
-    # plt.title(title)
-    # plt.ylabel('Offset')
-    # plt.xlabel('Time')
-    # plt.xticks(rotation=30)
-    # plt.show()
-
-
-
-    # plt.plot(sine_times, residuals, linewidth=0.2)
-
-    # if(cml_args.time.find(".") is not -1):
-    #     title = ("Residuals profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")))
-    #     micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
-    #     newmicros = micros.rstrip("0")
-    #     title = title.replace(micros, newmicros)
-    # else:
-    #     title = "Residuals profile within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
-
-    # plt.title(title)
-    # plt.ylabel('Stddev')
-    # plt.xlabel('Time')
-    # plt.xticks(rotation=30)
-    # plt.show()
-    
-    # sys.exit()
-    #######################################################################################################################################################################################
-
-    # Plot raw data
-    # Checks if there's a period in the given string in order to decide if micro-seconds should be incorporated.
-    if(cml_args.time.find(".") is not -1):
-        title = "Unfiltered data within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S.%f")).strftime("%H:%M:%S.%f on %B%e, %Y UTC")) 
-        micros = title[title.find(".") + 1:title.find(".") + 6 + 1]
-        newmicros = micros.rstrip("0")
-        title = title.replace(micros, newmicros)
-    else:
-        title = "Unfiltered data within {:0.6g}s of {:s}".format(float(cml_args.range)/2,(datetime.strptime(cml_args.time,"%Y%m%d-%H%M%S")).strftime("%H:%M:%S on %B%e, %Y UTC"))
-
-    # Plot the spectrogram
-    ax1 = plt.subplot(211)
-    plt.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
-    plt.title(title)
-    plt.ylabel('Frequency (Hz)')
-    plt.tick_params(bottom=False, labelbottom=False)
-    plt.subplots_adjust(hspace=0)
-
-    ax2 = plt.subplot(212, sharex = ax1)
-    plt.plot(time_relative, intensity,linewidth=0.2)
-    plt.ylabel('ADU')
-    plt.xlabel('Time')
-    plt.xlim([time_relative[0],time_relative[-1]])
-    plt.tick_params(labelbottom=False)
-    ax3 = ax2.twiny()
-    ax3.set_xlim(all_datetime[0],all_datetime[-1])
-    ax3.xaxis.set_ticks_position('bottom')
-    
-    plt.xticks(rotation=30)
-    
-    
-    # plt.savefig('/home/pi/Desktop/{:s}.png'.format(file_name), dpi=300)
-    
-    plt.show()
-
-    # Plot power spectral density
-    #plt.psd(intensity, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
-    #plt.show()
-
-
-    # Filter the light pollution
-    mains_freq = 60.0 # Hz
-    filtered_data = filterLP(intensity, sps, mains_freq, additional=[(160, 2.0), (32, 2.0), (94, 2.0), (553.0, 2.0), (614, 2.0), (40.0, 2.0), (20.0, 2.0)], lowpass=True)
-
-    # Skip the first 5% samples
-    beg_cut = int(len(time_relative)*0.05)
-    time_relative = time_relative[beg_cut:] - time_relative[beg_cut]
-    filtered_data = filtered_data[beg_cut:]
-    unix_times = unix_times[beg_cut:]
-
-    # Skip the last 1% samples
-    end_cut = len(time_relative) - int(len(time_relative)*0.01)
-    time_relative = time_relative[:end_cut]
-    filtered_data = filtered_data[:end_cut]
-    unix_times = unix_times[:end_cut] 
-
-    # Gather datetime equivalents of the unix times
-    unix_datetimes = [datetime.utcfromtimestamp(t) for t in unix_times]
-
-
-
-    # # Apply a moving average
-    # window_size = 3
-    # filtered_data = movingAverage(rdm.intensity.astype(np.float64), n=window_size)
-    # time_relative = time_relative[:len(filtered_data)]
-    # filtered_data = filtered_data[::window_size]
-    # time_relative = time_relative[::window_size]
-    # sps = sps/window_size
-
-
-    # # Apply a broad lowpass and a highpass filter
-    # bandpass_low = 5.0 # Hz
-    # bandpass_high = 60.0
-    # filtered_data = filterBandpass(rdm.intensity.astype(np.float64), sps, bandpass_low, bandpass_high, order=3)
-
-    # Print the filtered data
-    print(filtered_data)
-
-
-    # Plot filtered spectrogram
-    ax1 = plt.subplot(211)
-    plt.specgram(filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
-    title = title.replace("Unfiltered", "Filtered")
-    plt.title(title)
-    plt.tick_params(bottom=False, labelbottom=False)
-    plt.ylabel('Frequency (Hz)')
-    plt.subplots_adjust(hspace=0)
-    # Plot power spectral density
-    #plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
-    #plt.show()
-
-    mean_std = (np.mean(filtered_data) + np.std(filtered_data))*np.ones_like(time_relative)
-
-    # Plot filtered data
-    ax2 = plt.subplot(212, sharex = ax1)
-    plt.plot(time_relative, filtered_data, label='Filtered Data')
-    plt.plot(time_relative, mean_std, linestyle='--', label=r'Two $\sigma$ threshold')
-    plt.legend(loc = 0)
-    plt.xlabel('Time (s)')
-    plt.ylabel('ADU')
-    plt.xlim([time_relative[0],time_relative[-1]])
-    plt.tick_params(labelbottom=False)
-    ax3 = ax2.twiny()
-    ax3.set_xlim(unix_datetimes[0],unix_datetimes[-1])
-    ax3.xaxis.set_ticks_position('bottom')
-    plt.xticks(rotation=30)
-    plt.show()
-
-    if(cml_args.e is True):
-        if(not os.path.isdir(csv_path)):
-            os.mkdir(csv_path, 0o755)
-        export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)

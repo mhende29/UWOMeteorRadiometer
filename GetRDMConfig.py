@@ -13,8 +13,9 @@ except:
 
 
 class RDMConfig(object):
-    
     def __init__(self):
+        """ Config container. """
+
         self.station_code = None
         self.channel = None
         self.latitude = None
@@ -32,19 +33,26 @@ class RDMConfig(object):
         self.upload_queue_file = None
         self.remote_dir = None
         
-        self.read_from_server = None
+        self.read_from_server = False
+
+        self.mains_frequency = 60
+
+
+
+
 
 def readConfig(config_file_path):
     """ Generates two plots of the nights data. 
 
-        Input Arguments:
+        Arguments:
             
-            -config_file_path (string): The path to the directory that stores the configuration file. Ex: /home/pi/RadiometerData/config.txt
+            config_file_path: [str] The path to the directory that stores the configuration file. 
+                E.g.: /home/pi/RadiometerData/config.txt
 
-        Outputs:
-
-            - rdm_config (object): The configuration object
+        Return:
+            rdm_config: [object] The configuration object.
     """    
+
     # Create the configuration object
     rdm_config = RDMConfig()
     
@@ -73,11 +81,18 @@ def readConfig(config_file_path):
     rdm_config.upload_queue_file = config['Upload']['QueueFilename']
     rdm_config.remote_dir = config['Upload']['RemoteDirectory']
     
+    # If True, it means that this instance of the code is running on the server
     rdm_config.read_from_server = config['Server']['ReadFromServer']
+
+    # Filtering parameters
+    rdm_config.mains_frequency = float(config['Filtering']['MainsFrequency'])
     
     # Return the configuration object
     return rdm_config
         
+
+
+
 def makeConfig(config_file_path):
     """ Generates two plots of the nights data. 
 
@@ -126,6 +141,11 @@ def makeConfig(config_file_path):
     # Creates the upload manager configuration section using default settings
     config['Server'] = OrderedDict((
         ('ReadFromServer', 'False'),
+    ))
+
+    # Creates the upload manager configuration section using default settings
+    config['Filtering'] = OrderedDict((
+        ('MainsFrequency', '60'),
     ))
         
     # Generate the file in the desired directory and close it

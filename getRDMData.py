@@ -200,8 +200,6 @@ def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_cor
 			- valid_data (list of ints): The rdm intensities in the desired time section
 			- valid_time (list of floats): The rdm timings in the desired time section
 	"""	
-	# Convert the time range from string to float
-	time_range = float(time_range)
 
 	# Create a datetime object from the given time
 	# First try if the given time ends in microseconds
