@@ -436,7 +436,7 @@ if __name__ == "__main__":
         help="""Time of the event in the YYYYMMDD-HHMMSS.ms format. Data will be centred around this time. 
         """, type=str, default=None)
 
-    arg_p.add_argument('range', metavar='DURATION_SECONDS', type=float, nargs=1,
+    arg_p.add_argument('range', metavar='DURATION_SECONDS',
         help="""Duration in seconds of the data chunk that will be taken. The data will be taken in the range 
         of (-range/2, range/2), centered around the given time.""")
 
@@ -451,6 +451,9 @@ if __name__ == "__main__":
 
     # Parse input arguments
     cml_args = arg_p.parse_args()
+
+
+    cml_args = float(cml_args.range)
 
 
     ##########################################################################################################
