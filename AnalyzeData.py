@@ -436,11 +436,11 @@ if __name__ == "__main__":
         help="""Time of the event in the YYYYMMDD-HHMMSS.ms format. Data will be centred around this time. 
         """, type=str, default=None)
 
-    arg_p.add_argument('range', metavar='DURATION_SECONDS',
+    arg_p.add_argument('range', metavar='DURATION_SECONDS', type=float, nargs=1,
         help="""Duration in seconds of the data chunk that will be taken. The data will be taken in the range 
         of (-range/2, range/2), centered around the given time.""")
 
-    arg_p.add_argument('-f', '--mainsfreq', metavar='MAINS_FREQ', nargs='1', \
+    arg_p.add_argument('-f', '--mainsfreq', metavar='MAINS_FREQ', nargs=1, \
         help="Frequency of the mains hum.", type=float)
 
     arg_p.add_argument('-e', action = 'store_true', help="""If enabled produces and exports a csv file.""")
@@ -451,9 +451,6 @@ if __name__ == "__main__":
 
     # Parse input arguments
     cml_args = arg_p.parse_args()
-
-
-    cml_args = float(cml_args.range)
 
 
     ##########################################################################################################
