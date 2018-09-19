@@ -1,0 +1,1 @@
+- Fix the way nightplot folder lookup is done in AnalyzeData. Reuse the code from getRMSData.

@@ -408,6 +408,48 @@ def back_fun(coefs, x, y=None):
 
 
 
+def showNightPlot(event_time, station_code, station_channel):
+    """ Given the time and the station, show the night plot. """
+
+    yr_mon_day = event_time[:8]
+
+    # Find the appropriate night folder
+    night = [folder for folder in os.listdir(archived_data_path) if folder.startswith(cml_args.code \
+        + "_" + cml_args.channel + "_" + yr_mon_day)]
+
+    if not night:
+        print('The night was not found, night plot will not be shown!')
+        return False
+
+    # Get a list of PNGs in a given folder
+    pngs = [plot for plot in os.listdir(os.path.join(archived_data_path, *night)) if(plot.endswith(".png"))]
+
+    if not pngs:
+        print('The night plot PNG was not found!')
+        return False
+
+    night_plot = os.path.join(os.path.join(archived_data_path, *night),pngs[0])
+    max_minus = os.path.join(os.path.join(archived_data_path, *night),pngs[1])
+
+    img = mpimg.imread(night_plot)
+    fig = plt.imshow(img)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    plt.tight_layout()
+    plt.box(on=None)
+    plt.show()
+
+
+    img = mpimg.imread(max_minus)
+    fig = plt.imshow(img)
+    fig.axes.get_xaxis().set_visible(False)
+    fig.axes.get_yaxis().set_visible(False)
+    plt.tight_layout()
+    plt.box(on=None)
+    plt.show()
+
+
+
 if __name__ == "__main__":
         
     import matplotlib
@@ -443,10 +485,11 @@ if __name__ == "__main__":
     arg_p.add_argument('-f', '--mainsfreq', metavar='MAINS_FREQ', nargs=1, \
         help="Frequency of the mains hum.", type=float)
 
-    arg_p.add_argument('-e', action = 'store_true', help="""If enabled produces and exports a csv file.""")
+    arg_p.add_argument('-e', '--exportcsv', action = 'store_true', \
+        help="""If enabled produces and exports a csv file.""")
 
-    arg_p.add_argument('-n', action = 'store_true', help="""Loads the night plots. They show an overview of
-        all recorded intensities during the night.""")
+    arg_p.add_argument('-n', '--nightplot', action = 'store_true', \
+        help="""Loads the night plots. They show an overview of all recorded intensities during the night.""")
     
 
     # Parse input arguments
@@ -488,37 +531,25 @@ if __name__ == "__main__":
 
     filtered = False
 
-    if(cml_args.e is True):
+
+    # Export data to CSV
+    if cml_args.exportcsv:
+        
         if(not os.path.isdir(csv_path)):
             os.mkdir(csv_path, 0o755)
+
+
         export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
+
         filtered = True
 
-    if(cml_args.n is True):
-        yr_mon_day = cml_args.time[:8]
 
-        night = [folder for folder in os.listdir(archived_data_path) if(folder.startswith(cml_args.code  + "_" + cml_args.channel + "_" + yr_mon_day))]
+    # Show the night plot
+    if cml_args.nightplot:
 
-        pngs = [plot for plot in os.listdir(os.path.join(archived_data_path, *night)) if(plot.endswith(".png"))]
+        showNightPlot(cml_args.time, cml_args.code, cml_args.channel)
 
-        night_plot = os.path.join(os.path.join(archived_data_path, *night),pngs[0])
-        max_minus = os.path.join(os.path.join(archived_data_path, *night),pngs[1])
 
-        img = mpimg.imread(night_plot)
-        fig = plt.imshow(img)
-        fig.axes.get_xaxis().set_visible(False)
-        fig.axes.get_yaxis().set_visible(False)
-        plt.tight_layout()
-        plt.box(on=None)
-        plt.show()
-
-        img = mpimg.imread(max_minus)
-        fig = plt.imshow(img)
-        fig.axes.get_xaxis().set_visible(False)
-        fig.axes.get_yaxis().set_visible(False)
-        plt.tight_layout()
-        plt.box(on=None)
-        plt.show()
 
     # Compute relative time since the beginning of the recording
     time_relative = unix_times - np.min(unix_times)

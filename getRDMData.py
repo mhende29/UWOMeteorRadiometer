@@ -182,6 +182,9 @@ def unzipData(night_path, desired_files):
 
 	return all_data, all_time
 
+
+
+
 def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_corr = 0.0):
 
 	""" Determines which data needs to be read and retrieves the data. 
@@ -205,7 +208,8 @@ def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_cor
 	# First try if the given time ends in microseconds
 	try:
 		desired_time = datetime.strptime(time,"%Y%m%d-%H%M%S.%f") - timedelta(hours = UT_corr)
-	# If there is a value error because there wasn't microseconds try without it 
+	
+	# If there is a value error because there wasn't microseconds try without it
 	except ValueError:
 		desired_time = datetime.strptime(time,"%Y%m%d-%H%M%S") - timedelta(hours = UT_corr)
 		
@@ -218,6 +222,7 @@ def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_cor
 	
 	# Gather the directories of all the nights that contain the station code and channel
 	potential_nights = [night_name for night_name in os.listdir(dir_path) if night_name.startswith(station)]
+
 	# Sorts the files alphabetically which also sorts them by age
 	potential_nights = sorted(potential_nights)
 
@@ -226,7 +231,7 @@ def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_cor
 
 	# Check to see if the user asked to see data older than the earliest data.
 	if(night_start_times[0] > desired_time):
-		print("Earliest files on record began:",night_start_times[0],".\nPlease provide a valid time period that occured after the oldest period.")
+		print("Earliest files on record began:", night_start_times[0], ".\nPlease provide a valid time period that occured after the oldest period.")
 		sys.exit()
 
 	# Create an index to find the desired file
@@ -243,10 +248,13 @@ def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_cor
 			# Correct the index since the file we want is associated with the previous time
 			index -= 1
 			break
+		
 		# Desired file not found yet, increment index
 		index += 1
+
 		# Keep track of the previous datetime
 		prev_time = time
+
 
 	# Still havent yet found a file that contains the data we want, can't be guaranteed the file exists because we only have a lower bound to compare to
 	# Therefore check the final folder to be safe
