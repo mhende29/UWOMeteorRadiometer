@@ -153,6 +153,18 @@ def unzipData(night_path, desired_files):
 
 	# Unzip all desired files, one at a time
 	for zipped_file in desired_files:
+
+		# If the file is not zipped, load it directly
+		if zipped_file.endswith('.rdm'):
+
+			# Read the RDM file, and add the object to the list
+			temp_rdm, rdm_status = readRDM(os.path.join(night_path, zipped_file))
+			rdm_obj.append(temp_rdm)
+
+			continue
+
+
+
 		with tarfile.open(os.path.join(night_path,zipped_file),"r:bz2") as tar_file:
 
 			# Get the member and name of each zipped file we go through, getmembers and getnames return a list of 1 
@@ -268,7 +280,7 @@ def getRDMData(dir_path, station_code, station_channel, time, time_range, UT_cor
 	night_path = os.path.join(dir_path,desired_dir)
 
 	# Creates a list of the zipped files in the nights directory and sorts them by age
-	rdm_list = [file_name for file_name in os.listdir(night_path) if file_name.endswith(".tar.bz2")]
+	rdm_list = [file_name for file_name in os.listdir(night_path) if (file_name.endswith(".tar.bz2") or file_name.endswith(".rdm"))]
 	rdm_list = sorted(rdm_list)
 
 	# Get the start and end times of each file
