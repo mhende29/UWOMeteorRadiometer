@@ -427,6 +427,19 @@ def back_fun(coefs, x, y=None):
     else:
         return (coefs[0] + coefs[1]*x)
 
+def sensitivity_correction(x):
+    a =  1.00561038e+00
+    b = -8.59862888e-04
+    c =  1.01033620e-04
+    d = -5.58728639e-06
+    e =  3.70400792e-08
+    return a + b*x + c*x**2 + d*x**3 + e*x**4
+
+def calibration(intensity,azimuth,elevation):
+
+    calibrated_data = intensity*sensitivity_correction(elevation) 
+
+    return calibrated_data
 
 
 if __name__ == "__main__":
@@ -440,6 +453,8 @@ if __name__ == "__main__":
     work_dir = os.getcwd()
     home_dir = os.path.dirname(work_dir)
     csv_storage_dir = "Exported_Data"
+    trajectories = "Radiometer Trajectories"
+    traj_path = os.path.join(home_dir,trajectories)
     csv_path = os.path.join(home_dir,csv_storage_dir)
 
     # Set up input arguments
@@ -460,6 +475,8 @@ if __name__ == "__main__":
     arg_p.add_argument('-e', action = 'store_true', help="""If enabled produces and exports a csv file.""")
 
     arg_p.add_argument('-n', action = 'store_true', help="""Loads the night plots.""")
+
+    arg_p.add_argument('-c', action = 'store_true', help="""Calibrate the event.""")
     # Parse input arguments
     cml_args = arg_p.parse_args()
 
@@ -487,6 +504,10 @@ if __name__ == "__main__":
             os.mkdir(csv_path, 0o755)
         export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
         filtered = True
+
+    if(cml_args.c is True):
+        if(not os.path.isdir(traj_path)):
+            os.mkdir(traj_path, 0o755)
 
     if(cml_args.n is True):
         yr_mon_day = cml_args.time[:8]
@@ -523,6 +544,14 @@ if __name__ == "__main__":
     # Compute samples per second
     sps = len(time_relative)/(time_relative[-1] - time_relative[0])
     print('SPS:', sps)
+
+    plt.plot(all_datetime, intensity, label='Raw Data')
+    plt.xlabel("Time")
+    plt.ylabel("ADU")
+    plt.title("Calibration Data")
+    plt.xticks(rotation=30)
+    plt.show()
+    sys.exit()
 
     # Design notch filter
     # Filtering setup
