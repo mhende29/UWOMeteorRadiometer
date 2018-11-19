@@ -611,7 +611,7 @@ if __name__ == "__main__":
     
     # The optimization function in question is a three term gaussian model
     # f(x) = a1*exp(-((x-b1)/c1)^2) + a2*exp(-((x-b2)/c2)^2) + a3*exp(-((x-b3)/c3)^2) + d
-    res_lsq = scipy.optimize.least_squares(psd_fun, x0, loss='cauchy', args=(fit_freqs, fit_powers))
+    res_lsq = scipy.optimize.least_squares(psd_fun, x0, loss='soft_l1', args=(fit_freqs, fit_powers))
     print(res_lsq.x)
 
     # Calculate the mean power using the least-squares solution
