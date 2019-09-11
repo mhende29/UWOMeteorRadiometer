@@ -5,7 +5,7 @@ Only supports Python 3, Python 2 not supported.
 
 ## Installation
 
-First, you will need to install the BCM2835 library from the Waveshare website, which is used the by ADC: [BCM2835](https://www.waveshare.com/wiki/File:Bcm2835-1.45.tar.gz). Unzip it and follow the instructions in the 'INSTALL' file that should be present in the extracted directly. It's a very masic .configure, make, make install procedure.
+First, you will need to install the BCM2835 library from the Waveshare website, which is used the by ADC: [BCM2835](https://www.waveshare.com/wiki/File:Bcm2835-1.45.tar.gz). Unzip it and follow the instructions in the 'INSTALL' file that should be present in the extracted directly. It's a very basic .configure, make, make install procedure.
 
 Next, in the UWOMeterRadiometer directory run the ```python3_radiometer_installation.sh``` script to install all required packages. This will take a while.
 
