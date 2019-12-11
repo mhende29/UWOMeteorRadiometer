@@ -75,14 +75,14 @@ def readConfig(config_file_path):
     rdm_config.gain = int(config['Station']['Gain'])
         
     # Gather configuration data for the upload manager
-    rdm_config.upload_enabled = config['Upload']['EnableUpload']
+    rdm_config.upload_enabled = (config['Upload']['EnableUpload'].lower().strip() == "true")
     rdm_config.hostname = config['Upload']['HostName']
     rdm_config.rsa_private_key = config['Upload']['RSAPrivateKey']
     rdm_config.upload_queue_file = config['Upload']['QueueFilename']
     rdm_config.remote_dir = config['Upload']['RemoteDirectory']
     
     # If True, it means that this instance of the code is running on the server
-    rdm_config.read_from_server = config['Server']['ReadFromServer']
+    rdm_config.read_from_server = (config['Server']['ReadFromServer'].lower().strip() == "true")
 
     # Filtering parameters
     rdm_config.mains_frequency = float(config['Filtering']['MainsFrequency'])
