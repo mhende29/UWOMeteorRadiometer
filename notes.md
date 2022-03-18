@@ -1,4 +1,5 @@
-# NOTES
+# Notes
+
 These are my notes about the Meteor Radiometer. The first goal was to recreate what was done before: A raspberrypi 4 + WaveAhare high resolution AD and DA converter board + the amplifier based on BPW34 pin diode and LMC6464 quad opamp as described in this paper: 2018_WGN_Radiometer-final.pdf.
 
 WaveShare High-Precision AD/DA Board:
@@ -23,6 +24,8 @@ Vishay: https://www.vishay.com/docs/81521/bpw34.pdf
 
 OSRAM: https://dammedia.osram.info/media/resource/hires/osram-dam-5488305/BPW%2034_EN.pdf
 
+## The Amplifier
+
 The amplifiers are setup as a high-sensitivty current to voltage converter.
 
 high_sensitivity_I2V.png<img width="450" alt="I to V converter" src="https://user-images.githubusercontent.com/5185118/159007061-cd312148-de5e-49f8-bb5a-6eac18989d42.png">
@@ -32,6 +35,17 @@ high_sensitivity_I2V.png<img width="450" alt="I to V converter" src="https://use
     When R1 = 1M, and R2,R3 = 10k this will give a 2.01V/1uA
 
 (Source: "Design with Operational Amplifiers and Analog Intergated Circuits" by Sergio Franco)
+
+The LMC6464 has 4 opamps. In this design 3 of the 4 opamps are setup as high sesnitivty I to V converters each with a 2.01V/1uA output. The 4th opamp is setup as a summing amplifier with a variable gain. The summing amplifier adds the three outputs of the I to V converters and amplifies the signal.
+
+### Possible Improvements
+
+- add a 50Hz | 60z active notch or band reject filter (e.g. Wien-Robinson filter)
+- add a anti-aliassing filter (e.g. 4th order Butterworth low pass filter)
+- design a new pcb with optimized layout to reduce interference
+- adjustable diode bias
+
+## The Light Sensor
 
 The current source for the intended purpose here is the 3 BPW34 diodes wired in a paralell. The diodes can be used in two ways: PV (Photo Voltaic?) and PC (Photo Conductive?) mode. In this design the diodes are used in the PC mode, meaning that the cathodes will be connceted to the inverting pin of the opamp.
 In the group there has been some discussion on whether PC or PV mode is more sensitive. Perhaps a future iteration of the design should have a method for a variable diode bias. Testing with various bias settings could settle this discussion.
