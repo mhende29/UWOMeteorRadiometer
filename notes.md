@@ -27,9 +27,9 @@ The amplifiers are setup as a high-sensitivty current to voltage converter.
 
 high_sensitivity_I2V.png<img width="450" alt="I to V converter" src="https://user-images.githubusercontent.com/5185118/159007061-cd312148-de5e-49f8-bb5a-6eac18989d42.png">
 
-Where: Vout = (-Req) * Iin and Req = (1 + R2/R1 + R2/R3) * R1
+    Where: Vout = (-Req) * Iin and Req = (1 + R2/R1 + R2/R3) * R1
 
-When R1 = 1M, and R2,R3 = 10k this will give a 2.01V/1uA
+    When R1 = 1M, and R2,R3 = 10k this will give a 2.01V/1uA
 
 (Source: "Design with Operational Amplifiers and Analog Intergated Circuits" by Sergio Franco)
 
