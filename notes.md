@@ -76,5 +76,5 @@ It appears that with the current implemenatation the max smaple rate achievable 
 
 - add a Vref source @ 1/2 VDD and bias the Vin_neg @ Vref
 - use the DAC in differential mode (software)
-- improve the SPI communication with the ADS1256, to improve the maximum achievable smaple rate
+- improve the SPI communication with the ADS1256, to improve the maximum achievable sample rate
 - add an accurate timing reference (e.g. a GPS 1us pulse) to allow accurate allignment of measurements
