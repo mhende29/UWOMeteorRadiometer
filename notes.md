@@ -32,3 +32,4 @@ Where: Vout = (-Req) * Iin and Req = (1 + R2/R1 + R2/R3) * R1
 When R1 = 1M, and R2,R3 = 10k this will give a 2.01V/1uA
 
 (Source: "Design with Operational Amplifiers and Analog Intergated Circuits" by Sergio Franco)
+
