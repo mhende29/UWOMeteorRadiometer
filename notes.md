@@ -61,3 +61,17 @@ The BPW34 DS shows a lower limit of ~0.8uA @ 10lx, while a full moon with a clea
 - add more diodes (The FDS1010 suugested else where has an active area of 10mmx10mm, while the BPW34 has an active area of 2.62mmx2.65mm. Even with 9 diodes the total area is still 40% less then of the FDS1010.) [I think it is a good idea to stick to individual (smaller) areas as cosmic rays will only pass through one diode and do not affect the whole device.]
 - add a tempature sensor and (sofware) compensatation of the temperature dependecie of the BPW34.
 
+
+
+## The Analog to Digital Converter
+
+At the moment the ADC is used in a single channel mode. This limits the dynamic range of the ADC by 50%. By changing this to the differential mode the full dyanimc range of 24 bits will be enabled, however the number of availble channels will be reduced to 4.
+
+### Possible Improvements
+
+- add a Vref source @ 1/2 VDD
+- bias the Vin_neg @ Vref
+- use the DAC in differential mode
+- improve the SPI communication with the ADS1256, to improve the maximum achievable smaple rate
+ 
+
