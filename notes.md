@@ -54,10 +54,10 @@ The LMC6464 has 4 opamps. In this design 3 of the 4 opamps are setup as high ses
 The current source for the intended purpose here is the 3 BPW34 diodes wired in a paralell. The diodes can be used in two ways: PV (Photo Voltaic?) and PC (Photo Conductive?) mode. In this design the diodes are used in the PC mode, meaning that the cathodes will be connceted to the inverting pin of the opamp.
 In the group there has been some discussion on whether PC or PV mode is more sensitive. Perhaps a future iteration of the design should have a method for a variable diode bias. Testing with various bias settings could settle this discussion.
 
-The BPW34 DS shows a lower limit of ~0.8uA @ 10lx, while a full moon with a clear sky would between 0.05 to 0.3 lx.
+The BPW34 DS shows a lower limit of ~0.8uA @ 10lx, while a full moon with a clear sky would between 0.05 to 0.3lx.
 
 ### Possible Improvements
 
-- add more diodes (The FDS1010 suugested else where has an active area of 10mmx10mm, while the BPW34 has an active area of 2.62mmx2.65mm. Even with 9 diodes the total area is still 40% less then of the FDS1010.)
+- add more diodes (The FDS1010 suugested else where has an active area of 10mmx10mm, while the BPW34 has an active area of 2.62mmx2.65mm. Even with 9 diodes the total area is still 40% less then of the FDS1010.) [I think it is a good idea to stick to individual (smaller) areas as cosmic rays will only pass through one diode and do not affect the whole device.]
 - add a tempature sensor and (sofware) compensatation of the temperature dependecie of the BPW34.
 
