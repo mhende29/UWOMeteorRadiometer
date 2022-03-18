@@ -33,3 +33,7 @@ When R1 = 1M, and R2,R3 = 10k this will give a 2.01V/1uA
 
 (Source: "Design with Operational Amplifiers and Analog Intergated Circuits" by Sergio Franco)
 
+The current source for the intended purpose here is the 3 BPW34 diodes wired in a paralell. The diodes can be used in two ways: PV (Photo Voltaic?) and PC (Photo Conductive?) mode. In this design the diodes are used in the PC mode, meaning that the cathodes will be connceted to the inverting pin of the opamp.
+In the group there has been some discussion on whether PC or PV mode is more sensitive. Perhaps a future iteration of the design should have a method for a variable diode bias. Testing with various bias settings could settle this discussion.
+
+The BPW34 DS shows a lower limit of ~0.8uA @ 10lx, while a full moon with a clear sky would between 0.05 to 0.3 lx.
