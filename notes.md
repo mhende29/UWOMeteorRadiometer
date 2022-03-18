@@ -46,6 +46,7 @@ The LMC6464 has 4 opamps. In this design 3 of the 4 opamps are setup as high ses
 - add a anti-aliassing filter (e.g. 4th order Butterworth low pass filter)
 - design a new pcb with optimized layout to reduce interference
 - adjustable diode bias
+- add a 1uA current source to aid with calibration of the amplifier
 
 
 
