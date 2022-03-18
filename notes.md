@@ -70,7 +70,7 @@ The BPW34 DS shows a lower limit of ~0.8uA @ 10lx, while a full moon with a clea
 
 At the moment the ADC is used in a single channel mode. The Vout of the amplifier connects to the Vin_pos of the ADC. This limits the dynamic range of the ADC by 50%. By changing this to the differential mode the full dyanimc range of 24 bits will be enabled, however the number of availble channels will be reduced to 4.
 
-It appears that with the current implemenatation the max smaple rate achievable is ~ 2000 SPS, although the ADC is set to a smaple rate of 3750 sps.
+It appears that with the current implemenatation the max smaple rate achievable is ~ 2000 sps, although the ADC is set to a smaple rate of 3750 sps.
 
 ### Possible Improvements
 
