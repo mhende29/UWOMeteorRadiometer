@@ -24,6 +24,8 @@ Vishay: https://www.vishay.com/docs/81521/bpw34.pdf
 
 OSRAM: https://dammedia.osram.info/media/resource/hires/osram-dam-5488305/BPW%2034_EN.pdf
 
+
+
 ## The Amplifier
 
 The amplifiers are setup as a high-sensitivty current to voltage converter.
@@ -44,6 +46,8 @@ The LMC6464 has 4 opamps. In this design 3 of the 4 opamps are setup as high ses
 - add a anti-aliassing filter (e.g. 4th order Butterworth low pass filter)
 - design a new pcb with optimized layout to reduce interference
 - adjustable diode bias
+
+
 
 ## The Light Sensor
 
