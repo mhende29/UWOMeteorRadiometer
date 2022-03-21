@@ -26,6 +26,12 @@ OSRAM: https://dammedia.osram.info/media/resource/hires/osram-dam-5488305/BPW%20
 
 I am now at a stage where I have all of the basic fucntionality working (hardware and software) and I have carried out some basic measurements. Below or some details I have noted down along the way as well as some ideas of what could be done next based on the discussions and suggestions in the [MRM] group as well as my own obersavations.
 
+In order to reduce the noise I have adopted a 2.5V reference source for the Vin_neg of the differential inputs of the ADC instead of a simple resistive voltage divider dirctly from the supply voltage:
+
+https://www.analog.com/media/en/technical-documentation/data-sheets/REF43.pdf
+
+## The Initial Test Setup
+
 RadiometerTestSetup.png<img width="475" alt="image" src="https://user-images.githubusercontent.com/5185118/159028950-c0f64f46-6936-40a8-95d9-bb533a2931c7.png">
 
 ## The Amplifier
