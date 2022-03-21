@@ -14,6 +14,8 @@ https://www.ti.com/product/ADS1256
 
 https://www.ti.com/lit/gpn/ads1256
 
+https://www.ti.com/lit/an/sbaa133a/sbaa133a.pdf?ts=1647896597776&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FADS1256
+
 The amplifier is based on the LMC6464 and the BPW34:
 
 https://www.ti.com/product/LMC6464
