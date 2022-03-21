@@ -14,8 +14,7 @@ https://www.ti.com/product/ADS1256
 
 https://www.ti.com/lit/gpn/ads1256
 
-
-#### Measuring Single-Ended 0- to 5-V Signals with Differential Delta-Sigma ADCs:
+Measuring Single-Ended 0- to 5-V Signals with Differential Delta-Sigma ADCs:
 
 https://www.ti.com/lit/an/sbaa133a/sbaa133a.pdf?ts=1647896597776&ref_url=https%253A%252F%252Fwww.ti.com%252Fproduct%252FADS1256
 
