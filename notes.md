@@ -58,9 +58,9 @@ The LMC6464 has 4 opamps. In this design 3 of the 4 opamps are setup as high ses
 - add a anti-aliassing filter (e.g. 4th order Butterworth low pass filter)
 - design a new pcb with optimized layout to reduce interference
 - adjustable diode bias
-- add a 1uA current source to aid with calibration of the amplifier
-
-
+- add a 1uA current source to aid with calibration of the amplifier(s)
+- instead of using 1/4 of the LMC6464 as a summing amplfier it should also be possible to do the summing of 3 or possibly 4 channels in the software. 
+  This should avid the risk of driving the otput of this summing amplifier to the rail voltage and allow for a larger dynamic range of the whole system       withhout sacreficing the single 5V supply setup.
 
 ## The Light Sensor
 
