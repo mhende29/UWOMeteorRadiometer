@@ -28,6 +28,10 @@ Vishay: https://www.vishay.com/docs/81521/bpw34.pdf
 
 OSRAM: https://dammedia.osram.info/media/resource/hires/osram-dam-5488305/BPW%2034_EN.pdf
 
+General Information on photo diodes:
+
+http://www.osioptoelectronics.com/application-notes/AN-Photodiode-Parameters-Characteristics.pdf
+
 I am now at a stage where I have all of the basic fucntionality working (hardware and software) and I have carried out some basic measurements. Below or some details I have noted down along the way as well as some ideas of what could be done next based on the discussions and suggestions in the [MRM] group as well as my own obersavations.
 
 In order to reduce the noise I have adopted a 2.5V reference source for the Vin_neg of the differential inputs of the ADC instead of a simple resistive voltage divider dirctly from the supply voltage:
