@@ -2,16 +2,40 @@
 
 ## Pin Diode
 
-pin_diode_equivalent_circuit.png<img width="468" alt="image" src="https://user-images.githubusercontent.com/5185118/160282593-c18123a4-d747-49b8-9919-2f52e87aa308.png">
+pin_diode_equivalent_circuit.png<img width="526" alt="image" src="https://user-images.githubusercontent.com/5185118/160285522-6e7d0319-4caf-4839-8c64-f82b7779c21c.png">
 
 Take note of the direction of the current source and the polarity of the diode. Cj depends on reverse voltage of the diode and in this case I have assumed a typical value of 70 pF (data sheet PBW34). For Rs I have asumed 10 ohms, while Rsh is set to 10 Mohm (Mega Ohm).
 
 Both the capacitance of the diode as well as the dark current depend on the reverse bias volatge both of them increasing as the bais volatage increases.
 
+PC mode here means that the cathode is connected to the (inverting) input of the amplifier.
+PV mode here means that the anode is connected to the (non_inverting) input of the amplifier.
+
 ## Simulation Setup
 
-I have used a poor man's simulator to demonstrate the basic 2018 circuit using the transimpendance amplifier and the diode in PC mode with 0V bias. In this circuit I have included C1 (4.7 nF) to reduce the bandwidth of the amplifier. ( ~ 1291 Hz based on GBP of 50000 (= GBP of the LMC6464) ).
+I have used a poor man's simulator (iCircuit) to demonstrate the basic 2018 circuit using the transimpendance amplifier and the diode in PC mode with 0V bias. In this circuit I have included C1 (4.7 nF) to reduce the bandwidth of the amplifier. ( ~ 1291 Hz based on GBP of 50000 (= GBP of the LMC6464) ).
 
 PC_mode_0V_bias.png<img width="828" alt="image" src="https://user-images.githubusercontent.com/5185118/160283350-a40e22d0-9363-4e13-9305-979f7bc46ca1.png">
 
 The current source is set to 1uA so the expected output is 2.010V. I have included a small ac sweep ontop of the 1uA to study the small signal responce. In this simulation the opamp is considered to be ideal and will not accurately represent the actual system especialy with really small currents and a Vout that is close to zero.
+
+## Simualtion Results
+
+### PC MODE, 0V bias
+
+PC_mode_0V_bias_simulation.png<img width="1440" alt="image" src="https://user-images.githubusercontent.com/5185118/160284559-359a9a8a-d56d-4563-91f6-2942b1765a93.png">
+
+### PV MODE, incorrect !
+
+PV_mode_inverting_simulation.png<img width="1440" alt="image" src="https://user-images.githubusercontent.com/5185118/160285088-1fa944f7-283d-4fc2-98e9-628ee0a4f430.png">
+
+### PV MODE, using dual supply volatge: [+5V, -5V]
+
+PV_mode_dual_supply_simulation.png<img width="1440" alt="image" src="https://user-images.githubusercontent.com/5185118/160284702-d28058d3-e224-4516-b093-bb6379a7f853.png">
+
+### PV MODE, correct ?
+
+PV_mode_non_inverting_simulation.png<img width="1440" alt="image" src="https://user-images.githubusercontent.com/5185118/160284858-19b3e263-0b31-4c44-ac62-015a1b9ea422.png">
+
+To do: 
+- Find a better amplifier circuit using a single supply [+5V] that avoids operation near the zero volt supply rail, and the associated non-linearities.
