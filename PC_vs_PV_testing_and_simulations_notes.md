@@ -39,3 +39,11 @@ PV_mode_non_inverting_simulation.png<img width="1440" alt="image" src="https://u
 
 To do: 
 - Find a better amplifier circuit using a single supply [+5V] that avoids operation near the zero volt supply rail, and the associated non-linearities.
+
+## Test Setup
+
+The current labratory test setup is aimed at comparing various different amplifier and wiring verions. It consist of a aluminiam box housing a raspberry pi 4, a waveshare AD/DA converterboard and a small breadboard, with two identical versions of the 2018 of one of the 2018 amplifier transimpedance amplifiers with 3 diodes each. The ADC is used in differential mode and the V_in_neg is of each differential pair is connected to a Vref that is 1/2 of the summply voltage. The voltage ref IC also provides a temperature output and this used to monitor the temperature of te test box. To prove illumination in a controlled manner there is an led that can be switched on and off.
+
+radiometer_test_setup.png<img width="896" alt="image" src="https://user-images.githubusercontent.com/5185118/160288355-d73ab43f-62c5-45a3-89e2-847c5b3860a0.png">
+
+
