@@ -42,8 +42,11 @@ To do:
 
 ## Test Setup
 
-The current labratory test setup is aimed at comparing various different amplifier and wiring verions. It consist of a aluminiam box housing a raspberry pi 4, a waveshare AD/DA converterboard and a small breadboard, with two identical versions of the 2018 of one of the 2018 amplifier transimpedance amplifiers with 3 diodes each. The ADC is used in differential mode and the V_in_neg is of each differential pair is connected to a Vref that is 1/2 of the summply voltage. The voltage ref IC also provides a temperature output and this used to monitor the temperature of te test box. To prove illumination in a controlled manner there is an led that can be switched on and off.
+The current labratory test setup is aimed at comparing various different amplifier and wiring verions. It consist of a aluminiam box housing a raspberry pi 4, a waveshare AD/DA converterboard and a small breadboard, with two identical versions of the 2018 of one of the 2018 amplifier transimpedance amplifiers with 3 diodes each. The ADC is used in differential mode and the V_in_neg is of each differential pair is connected to a Vref that is 1/2 of the summply voltage. The voltage ref IC also provides a temperature output and this used to monitor the temperature of te test box. To prove illumination in a controlled manner there is an led that can be switched on and off. The light of the led is reflected back on the photo diodes via a whitepaper glued on the lid of the box. A simple python script is used to initialize the ADC and read the data, as well as controlling the led.
 
 radiometer_test_setup.png<img width="896" alt="image" src="https://user-images.githubusercontent.com/5185118/160288355-d73ab43f-62c5-45a3-89e2-847c5b3860a0.png">
 
 
+test_setup_output.png<img width="406" alt="image" src="https://user-images.githubusercontent.com/5185118/160288627-b4c79ee4-c39a-4b9d-86b9-4f7cb065c754.png">
+
+radio_meter_lab_test.png<img width="954" alt="image" src="https://user-images.githubusercontent.com/5185118/160288922-33a9d90f-2454-4f91-a1cf-524a6732278b.png">
