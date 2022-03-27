@@ -6,6 +6,8 @@ pin_diode_equivalent_circuit.png<img width="468" alt="image" src="https://user-i
 
 Take note of the direction of the current source and the polarity of the diode. Cj depends on reverse voltage of the diode and in this case I have assumed a typical value of 70 pF (data sheet PBW34). For Rs I have asumed 10 ohms, while Rsh is set to 10 Mohm (Mega Ohm).
 
+Both the capacitance of the diode as well as the dark current depend on the reverse bias volatge both of them increasing as the bais volatage increases.
+
 ## Simulation Setup
 
 I have used a poor man's simulator to demonstrate the basic 2018 circuit using the transimpendance amplifier and the diode in PC mode with 0V bias. In this circuit I have included C1 (4.7 nF) to reduce the bandwidth of the amplifier. ( ~ 1291 Hz based on GBP of 50000 (= GBP of the LMC6464) ).
