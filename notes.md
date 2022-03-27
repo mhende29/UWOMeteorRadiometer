@@ -40,7 +40,7 @@ https://www.analog.com/media/en/technical-documentation/data-sheets/REF43.pdf
 
 ## The Initial Test Setup
 
-RadiometerTestSetup.png<img width="475" alt="image" src="https://user-images.githubusercontent.com/5185118/159028950-c0f64f46-6936-40a8-95d9-bb533a2931c7.png">
+!RadiometerTestSetup.png<img width="475" alt="image" src="https://user-images.githubusercontent.com/5185118/159028950-c0f64f46-6936-40a8-95d9-bb533a2931c7.png">
 
 ## The Amplifier
 
@@ -48,7 +48,7 @@ The amplifiers are setup as a high-sensitivty current to voltage converter.
 
 high_sensitivity_I2V.png<img width="450" alt="I to V converter" src="https://user-images.githubusercontent.com/5185118/159007061-cd312148-de5e-49f8-bb5a-6eac18989d42.png">
 
-    Where: Vout = (-Req) * Iin and Req = (1 + R2/R1 + R2/R3) * R1
+    Where: $V_{out}$ = $(-R_{eq})$ * $I_{in}$ and Req = (1 + R2/R1 + R2/R3) * R1
 
     When R1 = 1M, and R2,R3 = 10k this will give a 2.01V/1uA
 
