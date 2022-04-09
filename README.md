@@ -1,6 +1,6 @@
 # UWOMeteorRadiometer
 
-Only supports Python 3, Python 2 not supported. Note: For it seems it doesn't work with Pi OS 'Bullseye' !
+Only supports Python 3, Python 2 not supported. Note: For now, it seems it doesn't work with Pi OS 'Bullseye' !
 
 
 ## Installation
