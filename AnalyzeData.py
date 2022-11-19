@@ -366,23 +366,45 @@ def filterInterpolatedSines(time_data, intensity_data, sine_fits):
     return filtered_data, fitted_sines
 
 
+def generateEventName(station_code, station_channel, unix_times):
+    """ Generate a template file name for the event. """
+
+    beg_time = datetime.utcfromtimestamp(unix_times[0])
+    end_time = datetime.utcfromtimestamp(unix_times[-1])
+
+    event_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}".format(
+        station_code, 
+        station_channel, 
+        beg_time.year,
+        beg_time.month,
+        beg_time.day,
+        beg_time.hour,
+        beg_time.minute,
+        beg_time.second, 
+        beg_time.microsecond, 
+        end_time.hour,
+        end_time.minute,
+        end_time.second, 
+        end_time.microsecond
+        )
+
+    return event_name
+
     
  
-def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_data, filtered):
-    beg_time = datetime.utcfromtimestamp(time_data[0])
-    end_time = datetime.utcfromtimestamp(time_data[-1])
+def exportCSV(dir_path, station_code, station_channel, unix_times, intensity_data, filtered):
 
-    waiting_time = end_time - beg_time
-    time_dif = int(waiting_time.total_seconds())
+    # Create an event name
+    event_name = generateEventName(station_code, station_channel, unix_times)
     
     if(filtered):
-        file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}_filtered.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
+        file_name = "{:s}_filtered.csv".format(event_name)
     else:
-        file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
+        file_name = "{:s}.csv".format(event_name)
     
     header = ["# Unix Times", "Intensity"]
 
-    data = [[time_data[i], intensity_data[i]] for i in range(len(time_data))]
+    data = [[unix_times[i], intensity_data[i]] for i in range(len(unix_times))]
 
     with open(os.path.join(dir_path, file_name), 'w') as csvfile:
         file = csv.writer(csvfile)
@@ -463,6 +485,10 @@ if __name__ == "__main__":
     csv_storage_dir = "Exported_Data"
     csv_path = os.path.join(home_dir,csv_storage_dir)
 
+    # Create a directory on the disk for exporting events
+    if(not os.path.isdir(csv_path)):
+        os.mkdir(csv_path, 0o755)
+
     # Set up input arguments
     arg_p = argparse.ArgumentParser(description="Get radiometer files.")
 
@@ -490,6 +516,9 @@ if __name__ == "__main__":
 
     arg_p.add_argument('-n', '--nightplot', action = 'store_true', \
         help="""Loads the night plots. They show an overview of all recorded intensities during the night.""")
+
+    arg_p.add_argument('-p', '--showplots', action = 'store_true', \
+        help="""Show the plots on the screen.""")
     
 
     # Parse input arguments
@@ -531,15 +560,14 @@ if __name__ == "__main__":
 
     filtered = False
 
+    # Make a name for the event
+    event_name = generateEventName(cml_args.code, cml_args.channel, unix_times)
+
 
     # Export data to CSV
     if cml_args.exportcsv:
-        
-        if(not os.path.isdir(csv_path)):
-            os.mkdir(csv_path, 0o755)
 
-
-        export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
+        exportCSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
 
         filtered = True
 
@@ -633,7 +661,14 @@ if __name__ == "__main__":
     plt.plot(freqs, power_db, label='Raw signal PSD')
     plt.plot(freqs[max_powers], 10*np.log10(p_xx[max_powers]), 'r+')
     plt.legend(loc=0)
-    plt.show()
+
+    plt.savefig(os.path.join(csv_path, event_name + "_psd.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
 
     # Begin recursive filtering 
 
@@ -790,7 +825,14 @@ if __name__ == "__main__":
     plt.sca(ax3)
     plt.xticks(rotation=30)
 
-    plt.show()
+    plt.savefig(os.path.join(csv_path, event_name + "_filtering.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
+
 
     print()
 
@@ -812,7 +854,14 @@ if __name__ == "__main__":
 
     plt.xticks(rotation=30)
     plt.legend()
-    plt.show()
+
+    plt.savefig(os.path.join(csv_path, event_name + "_data.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
 
     corrected_datetime = all_datetime[int(0.02*len(all_datetime)):-1]
     corrected_good_data = good_filtered_data[int(0.02*len(good_filtered_data)):-1]
@@ -823,7 +872,14 @@ if __name__ == "__main__":
     plt.xticks(rotation=30)
     plt.title("Filtered Data")
     plt.legend()
-    plt.show()
+
+    plt.savefig(os.path.join(csv_path, event_name + "_filtered_data.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
 
     plt.psd(intensity, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
     plt.psd(good_filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
@@ -831,4 +887,11 @@ if __name__ == "__main__":
     plt.plot(freqs,power_means, 'g')
     plt.plot(freqs,power_lower_lim, linestyle = '--', color = 'm')
     plt.plot(freqs,power_upper_lim, linestyle = '--', color = 'm')
-    plt.show()
+    
+    plt.savefig(os.path.join(csv_path, event_name + "_psd_filtered.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
