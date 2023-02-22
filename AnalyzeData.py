@@ -445,11 +445,17 @@ def backgroundPSDModelResidualSum(coefs, x, y):
     return np.sum(2*((1 + res)**0.5 - 1))
 
 
-def back_fun(coefs, x, y=None):
-    if(y is not None): 
-        return (coefs[0] + coefs[1]*x) - y
+def linearBackgroundModel(coefs, x, y=None):
+
+    # Compute the function value
+    val = coefs[0] + coefs[1]*x
+
+    # If the data are given, compute the residuals
+    if y is not None: 
+        return val - y
+    
     else:
-        return (coefs[0] + coefs[1]*x)
+        return val
 
 
 
@@ -546,6 +552,10 @@ if __name__ == "__main__":
     arg_p.add_argument('-a', '--archivepath', metavar='ARCHIVE_PATH', type=str,
         help="""Path to the directory with archived. If not given, the default path will be used.""",
         default=None)
+    
+    arg_p.add_argument('-i', '--integrate', action = 'store_true', \
+                       help="""If enabled, the program will attempt to automatically find the fireball and 
+                       compute the integrated area under the curve.""")
     
 
     # Parse input arguments
@@ -672,6 +682,13 @@ if __name__ == "__main__":
                    0.0,   config.mains_frequency, 1.0, # Second Gaussian
                    0.0, 2*config.mains_frequency, 1.0  # Third Gaussian
                    ])
+    
+
+    # Fit the function using Nelder-Mead
+    res = scipy.optimize.minimize(backgroundPSDModelResidualSum, x0, args=(fit_freqs, fit_powers), 
+                                      method='Nelder-Mead')
+    
+    ### OLD CODE ###
     # Begin initial guess's, 0 where additions/subtractions are and 1 where multiplications/divisions are
     #x0 = np.array([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
     
@@ -681,9 +698,7 @@ if __name__ == "__main__":
     # # Fit the function using least-squares
     # res = scipy.optimize.least_squares(backgroundPSDModel, x0, loss='soft_l1', args=(fit_freqs, fit_powers))
 
-    # Fit the function using Nelder-Mead
-    res = scipy.optimize.minimize(backgroundPSDModelResidualSum, x0, args=(fit_freqs, fit_powers), 
-                                      method='Nelder-Mead')
+    ### ###
     
     print("Three term gaussian fit on the PSD of the background noise")
     print(res.x)
@@ -792,7 +807,7 @@ if __name__ == "__main__":
         good_filtered_data = applyNotchFilter(good_filtered_data, w0, res.x[0])
 
 
-        # # OLD METHOD:
+        # ### OLD METHOD ###
         # # Increase the notch filter quality factor until the power at the peak is within the confidence region
         # while (power_to_verify > upper_bound) or (power_to_verify < lower_bound):
 
@@ -828,87 +843,105 @@ if __name__ == "__main__":
         #     else:
         #         filtered_data = np.copy(good_filtered_data)
         #         Q += mains_hum[i]/config.mains_frequency
+        # ### ###
 
 
         i += 1
 
     print("All frequencies filtered!")
+
+    print()
     print("Finding background level")
 
     # Begin another least-squares optimization fit that follows the background level in the data
     # Begin initial guess's, 0 where additions/subtractions are and 1 where multiplications/divisions are
     x0 = np.array([1.0, 1.0])
 
-    # Attempt to fit a quartic polynomial
-    res_lsq_back = scipy.optimize.least_squares(back_fun, x0, loss='cauchy', args=(time_relative, good_filtered_data))
-    print(res_lsq_back.x)
+    # Attempt to fit the background model on the filtered data
+    res_lsq_back = scipy.optimize.least_squares(linearBackgroundModel, x0, 
+                                                args=(time_relative, good_filtered_data)
+                                                )
+
+    print("Data background fit: {}".format(res_lsq_back.x))
+
     # Calculate the mean power using the least-squares solution
-    background_level = back_fun(res_lsq_back.x, time_relative)
+    background_level_arr = linearBackgroundModel(res_lsq_back.x, time_relative)
 
-    # Calculate number of samples in window, since the main harmonice is 60/50 Hz which is 1/freq s, that will be the smallest window we should use 
-    window_width = int(fs/mains_hum[0])
-    window_shift = int(window_width/2.0)
 
-    # To find the area beneath the curve, find the highest point in the data becuase it's likely the meteor
-    peak_index = np.argmax(good_filtered_data)
+    ### Try to locate the fireball in the data and determine its boundaries ###
 
-    i = peak_index
-    while(True):
-        if(good_filtered_data[i]<background_level[i] or i==0):
-            left_std_start = i
-            break
-        else:
-            i -= 1
+    if cml_args.integrate:
 
-    i = peak_index
-    while(True):
-        if(good_filtered_data[i]<background_level[i] or i==len(good_filtered_data)-1):
-            right_std_start = i
-            break
-        else:
-            i += 1
+        # Calculate number of samples in window, since the main harmonice is 60/50 Hz which is 1/freq s, that will be the smallest window we should use 
+        window_width = int(fs/mains_hum[0])
+        window_shift = int(window_width/2.0)
 
-    left_back_low = background_level - 3*np.std(good_filtered_data[0:left_std_start])
-    left_back_upp = background_level + 3*np.std(good_filtered_data[0:left_std_start])
+        # To find the area beneath the curve, find the highest point in the data becuase it's likely the meteor
+        peak_index = np.argmax(good_filtered_data)
 
-    right_back_low = background_level - 3*np.std(good_filtered_data[right_std_start:-1])
-    right_back_upp = background_level + 3*np.std(good_filtered_data[right_std_start:-1])
+        i = peak_index
+        while(True):
+            if(good_filtered_data[i]<background_level_arr[i] or i==0):
+                left_std_start = i
+                break
+            else:
+                i -= 1
 
-    i = 0
-    window_mean = np.mean(good_filtered_data[peak_index - (i + 1)*window_shift:peak_index - (i - 1)*window_shift])
+        i = peak_index
+        while(True):
+            if(good_filtered_data[i]<background_level_arr[i] or i==len(good_filtered_data)-1):
+                right_std_start = i
+                break
+            else:
+                i += 1
 
-    while(True):
-        i += 1
+        left_back_low = background_level_arr - 3*np.std(good_filtered_data[0:left_std_start])
+        left_back_upp = background_level_arr + 3*np.std(good_filtered_data[0:left_std_start])
+
+        right_back_low = background_level_arr - 3*np.std(good_filtered_data[right_std_start:-1])
+        right_back_upp = background_level_arr + 3*np.std(good_filtered_data[right_std_start:-1])
+
+        i = 0
         window_mean = np.mean(good_filtered_data[peak_index - (i + 1)*window_shift:peak_index - (i - 1)*window_shift])
-        try:
-            if(window_mean < left_back_upp[peak_index - i*window_shift] and window_mean > left_back_low[peak_index - i*window_shift]):
-                peak_lower_bound = peak_index - i*window_shift
+
+        while(True):
+            i += 1
+            window_mean = np.mean(good_filtered_data[peak_index - (i + 1)*window_shift:peak_index - (i - 1)*window_shift])
+            try:
+                if(window_mean < left_back_upp[peak_index - i*window_shift] and window_mean > left_back_low[peak_index - i*window_shift]):
+                    peak_lower_bound = peak_index - i*window_shift
+                    break
+            except IndexError:
                 break
-        except IndexError:
-            break
 
-    i = 0
-    window_mean = np.mean(good_filtered_data[peak_index + (i - 1)*window_shift:peak_index + (i + 1)*window_shift])
-
-    while(True):
-        i += 1
+        i = 0
         window_mean = np.mean(good_filtered_data[peak_index + (i - 1)*window_shift:peak_index + (i + 1)*window_shift])
-        try:
-            if(window_mean < right_back_upp[peak_index + i*window_shift] and window_mean > right_back_low[peak_index + i*window_shift]):
-                peak_upper_bound = peak_index + i*window_shift
-                break
-        except IndexError:
-            break
 
-    try:
-        filtered_curve_area = scipy.integrate.trapz(good_filtered_data[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
-        background_area = scipy.integrate.trapz(background_level[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
-        light_curve_relative_to_background = filtered_curve_area - background_area
-    except NameError:
-        print("Integration bounds could not be found.")
+        while(True):
+            i += 1
+            window_mean = np.mean(good_filtered_data[peak_index + (i - 1)*window_shift:peak_index + (i + 1)*window_shift])
+            try:
+                if(window_mean < right_back_upp[peak_index + i*window_shift] and window_mean > right_back_low[peak_index + i*window_shift]):
+                    peak_upper_bound = peak_index + i*window_shift
+                    break
+            except IndexError:
+                break
+
+        try:
+            filtered_curve_area = scipy.integrate.trapz(good_filtered_data[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
+            background_area = scipy.integrate.trapz(background_level_arr[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
+            light_curve_relative_to_background = filtered_curve_area - background_area
+        except NameError:
+            print("Integration bounds could not be found.")
+
+
+    ### ###
 
     
 
+    ### Plot the spectrograms of the original data and the filtered data ###
+
+    # Compute the spectrogram
     spectrum1, freqs1, t1, im1 = plt.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
     spectrum2, freqs2, t2, im2 = plt.specgram(good_filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
     plt.close()
@@ -930,11 +963,14 @@ if __name__ == "__main__":
 
     # Plotting original spectrogram on top plot
     plt.sca(axs[0])
-    axs[0].set_title("Before and after filtering.")
+    axs[0].set_title("Spectrogram before filtering")
     axs[0].set_ylabel("Frequency (Hz)")
     spectrum1, freqs1, t1, im1 = axs[0].specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0, vmin=min_val, vmax=max_val)
+
+
     # Plotting filtered spectrogram on bottom plot
     plt.sca(axs[1])
+    axs[0].set_title("Spectrogram after filtering")
     axs[1].set_xlabel("Time")
     axs[1].set_ylabel("Frequency (Hz)")
     spectrum2, freqs2, t2, im2 = axs[1].specgram(good_filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0, vmin=min_val, vmax=max_val)
@@ -956,7 +992,7 @@ if __name__ == "__main__":
     plt.sca(ax3)
     plt.xticks(rotation=30)
 
-    plt.savefig(os.path.join(csv_path, event_name + "_filtering.png"), dpi=150)
+    plt.savefig(os.path.join(csv_path, event_name + "_spectrograms.png"), dpi=150)
 
     if cml_args.showplots:
         plt.show()
@@ -965,23 +1001,26 @@ if __name__ == "__main__":
         plt.close()
 
 
-    print()
+    
 
-    #sys.exit()
-
+    
+    # Plot the raw data, the filtered data, and the background level
     plt.plot(all_datetime, intensity, label='Raw Data')
     plt.plot(all_datetime, good_filtered_data, label='Filtered Data')
-    plt.plot(all_datetime, background_level, label='Background Level',color='green')
-    plt.plot(all_datetime[0:left_std_start], left_back_upp[0:left_std_start], linestyle = '--', color = 'm')
-    plt.plot(all_datetime[0:left_std_start], left_back_low[0:left_std_start], linestyle = '--', color = 'm')
-    plt.plot(all_datetime[right_std_start:-1], right_back_upp[right_std_start:-1], linestyle = '--', color = 'm')
-    plt.plot(all_datetime[right_std_start:-1], right_back_low[right_std_start:-1], linestyle = '--', color = 'm')
-    try:
-        plt.axvline(x=all_datetime[peak_upper_bound], color='red')
-        plt.axvline(x=all_datetime[peak_lower_bound], color='red')
-        plt.fill_between(all_datetime[peak_lower_bound:peak_upper_bound], good_filtered_data[peak_lower_bound:peak_upper_bound], background_level[peak_lower_bound:peak_upper_bound], color='magenta')
-    except NameError:
-        pass
+    plt.plot(all_datetime, background_level_arr, label='Background Level', color='green')
+
+    if cml_args.integrate:
+
+        plt.plot(all_datetime[0:left_std_start], left_back_upp[0:left_std_start], linestyle = '--', color = 'm')
+        plt.plot(all_datetime[0:left_std_start], left_back_low[0:left_std_start], linestyle = '--', color = 'm')
+        plt.plot(all_datetime[right_std_start:-1], right_back_upp[right_std_start:-1], linestyle = '--', color = 'm')
+        plt.plot(all_datetime[right_std_start:-1], right_back_low[right_std_start:-1], linestyle = '--', color = 'm')
+        try:
+            plt.axvline(x=all_datetime[peak_upper_bound], color='red')
+            plt.axvline(x=all_datetime[peak_lower_bound], color='red')
+            plt.fill_between(all_datetime[peak_lower_bound:peak_upper_bound], good_filtered_data[peak_lower_bound:peak_upper_bound], background_level_arr[peak_lower_bound:peak_upper_bound], color='magenta')
+        except NameError:
+            pass
 
     plt.xticks(rotation=30)
     plt.legend()
@@ -996,10 +1035,10 @@ if __name__ == "__main__":
 
     corrected_datetime = all_datetime[int(0.02*len(all_datetime)):-1]
     corrected_good_data = good_filtered_data[int(0.02*len(good_filtered_data)):-1]
-    corrected_background_level = background_level[int(0.02*len(background_level)):-1]
+    corrected_background_level_arr = background_level_arr[int(0.02*len(background_level_arr)):-1]
 
     plt.plot(corrected_datetime, corrected_good_data, label='Filtered Data')
-    plt.plot(corrected_datetime, corrected_background_level, label='Background Level',color='green')
+    plt.plot(corrected_datetime, corrected_background_level_arr, label='Background Level',color='green')
     plt.xticks(rotation=30)
     plt.title("Filtered Data")
     plt.legend()
