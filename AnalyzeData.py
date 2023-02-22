@@ -15,6 +15,8 @@ import scipy.signal
 import scipy.optimize
 import scipy.interpolate
 
+import matplotlib.mlab
+
 from getRDMData import getRDMData
 
 
@@ -415,11 +417,32 @@ def exportCSV(dir_path, station_code, station_channel, unix_times, intensity_dat
 
 
 
-def psd_fun(coefs, x, y=None):
-    if(y is not None): 
-        return coefs[0] +coefs[1]*np.exp(-((x-coefs[2])/coefs[3])**2) + coefs[4]*np.exp(-((x-coefs[5])/coefs[6])**2) + coefs[7]*np.exp(-((x-coefs[8])/coefs[9])**2) - y
+def backgroundPSDModel(coefs, x, y=None):
+    """  Three term gaussian model used to model the background frequency.
+        f(x) = a1*exp(-((x-b1)/c1)^2) + a2*exp(-((x-b2)/c2)^2) + a3*exp(-((x-b3)/c3)^2) + d
+        
+    """
+
+    # Compute the function value
+    val = coefs[0] \
+        + coefs[1]*np.exp(-((x - coefs[2])/coefs[3])**2) \
+        + coefs[4]*np.exp(-((x - coefs[5])/coefs[6])**2) \
+        + coefs[7]*np.exp(-((x - coefs[8])/coefs[9])**2)
+    
+    # If the data are given, compute the residuals
+    if y is not None: 
+        return val - y
+    
     else:
-        return coefs[0] +coefs[1]*np.exp(-((x-coefs[2])/coefs[3])**2) + coefs[4]*np.exp(-((x-coefs[5])/coefs[6])**2) + coefs[7]*np.exp(-((x-coefs[8])/coefs[9])**2)
+        return val
+    
+def backgroundPSDModelResidualSum(coefs, x, y):
+
+    # Squared value of each residual
+    res = backgroundPSDModel(coefs, x, y=y)**2
+
+    # Smooth approximation of l1 (absolute value) loss
+    return np.sum(2*((1 + res)**0.5 - 1))
 
 
 def back_fun(coefs, x, y=None):
@@ -520,6 +543,10 @@ if __name__ == "__main__":
     arg_p.add_argument('-p', '--showplots', action = 'store_true', \
         help="""Show the plots on the screen.""")
     
+    arg_p.add_argument('-a', '--archivepath', metavar='ARCHIVE_PATH', type=str,
+        help="""Path to the directory with archived. If not given, the default path will be used.""",
+        default=None)
+    
 
     # Parse input arguments
     cml_args = arg_p.parse_args()
@@ -550,6 +577,11 @@ if __name__ == "__main__":
     # Assign the mains frequency hum if given
     if cml_args.mainsfreq:
         config.mains_frequency = cml_args.mainsfreq[0]
+
+
+    # Take the archive path from the command line if given
+    if cml_args.archivepath:
+        archived_data_path = cml_args.archivepath
     
     
     if not os.path.exists(archived_data_path):
@@ -622,6 +654,7 @@ if __name__ == "__main__":
     fit_freqs = list(np.copy(freqs))
 
     # Search 10 elements on either side of the nearest mains hum for the peak power index
+    # This will be identified as the center of the mains hum harmonic
     search_width = 10 
     for i in range(len(mains_hum)):
         max_powers = np.append(max_powers,index[i] - search_width + (p_xx[index[i]-search_width:index[i]+search_width]).argmax()).astype(int)
@@ -634,32 +667,51 @@ if __name__ == "__main__":
     
 
     # Begin a least-squares optimization fit that follows the noise in the psd
+    x0 = np.array([np.median(fit_powers), # Background
+                   np.mean(fit_powers), 2.0, 5.0, # First gaussian (mostly DC component)
+                   0.0,   config.mains_frequency, 1.0, # Second Gaussian
+                   0.0, 2*config.mains_frequency, 1.0  # Third Gaussian
+                   ])
     # Begin initial guess's, 0 where additions/subtractions are and 1 where multiplications/divisions are
-    x0 = np.array([0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    #x0 = np.array([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
     
     # The optimization function in question is a three term gaussian model
     # f(x) = a1*exp(-((x-b1)/c1)^2) + a2*exp(-((x-b2)/c2)^2) + a3*exp(-((x-b3)/c3)^2) + d
-    res_lsq = scipy.optimize.least_squares(psd_fun, x0, loss='soft_l1', args=(fit_freqs, fit_powers))
-    print(res_lsq.x)
+
+    # # Fit the function using least-squares
+    # res = scipy.optimize.least_squares(backgroundPSDModel, x0, loss='soft_l1', args=(fit_freqs, fit_powers))
+
+    # Fit the function using Nelder-Mead
+    res = scipy.optimize.minimize(backgroundPSDModelResidualSum, x0, args=(fit_freqs, fit_powers), 
+                                      method='Nelder-Mead')
+    
+    print("Three term gaussian fit on the PSD of the background noise")
+    print(res.x)
 
     # Calculate the mean power using the least-squares solution
-    power_means = psd_fun(res_lsq.x, freqs)
+    power_means = backgroundPSDModel(res.x, freqs)
 
-    # Calculate the standard deviation
+    # Calculate the standard deviation of the fit
     power_std = np.std(power_db)
     power_lower_lim = power_means - power_std/4.0
     power_upper_lim = power_means + power_std/4.0
 
+    # Plot the raw signal
+    plt.plot(freqs, power_db, label='Raw signal PSD')
+
     # Plot the fit with a half-sigma sigma confidence bound for filtering 
-    plt.plot(freqs,power_means, 'g', label='Background power fit')
-    plt.plot(freqs,power_lower_lim, linestyle = '--', color = 'm', label=r'Confidence region: $\frac{1}{4}$$\sigma$')
-    plt.plot(freqs,power_upper_lim, linestyle = '--', color = 'm')
+    plt.plot(freqs, power_means, 'g', label='Background power fit')
+    plt.plot(freqs, power_lower_lim, linestyle = '--', color = 'm', label=r'Confidence region: $\frac{1}{4}$$\sigma$')
+    plt.plot(freqs, power_upper_lim, linestyle = '--', color = 'm')
+    
+    # Plot the identified peaks of the mains hum
+    plt.plot(freqs[max_powers], 10*np.log10(p_xx[max_powers]), 'r+', label='Mains hum peaks')
+
     plt.title("Initial Power spectral Density of Raw Signal")
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("Power Spectral Density (dB/Hz)")
     plt.grid(which='both')
-    plt.plot(freqs, power_db, label='Raw signal PSD')
-    plt.plot(freqs[max_powers], 10*np.log10(p_xx[max_powers]), 'r+')
+
     plt.legend(loc=0)
 
     plt.savefig(os.path.join(csv_path, event_name + "_psd.png"), dpi=150)
@@ -670,35 +722,114 @@ if __name__ == "__main__":
         plt.clf()
         plt.close()
 
-    # Begin recursive filtering 
-
+    
+    
+    # Begin recursive filtering of mains hum harmonics
     filtered_data = np.copy(intensity)
     good_filtered_data = np.copy(filtered_data)
 
     i = 0
-    for frequency in max_powers:
-        power_to_verify = power_db[frequency]
-        lower_bound = power_lower_lim[frequency]
-        upper_bound = power_upper_lim[frequency]
+    for peak_freq in max_powers:
+
+        # Read the power at the peak
+        power_to_verify = power_db[peak_freq]
+
+        # Read the boundaries of the confidence region
+        lower_bound = power_lower_lim[peak_freq]
+        background_power = power_means[peak_freq]
+        upper_bound = power_upper_lim[peak_freq]
+
+        # Define the notch filter parameters
         w0 = mains_hum[i]/(fs/2)
-        Q = 1
+        Q = 1.0
 
         print("Filtering {:}Hz".format(int(mains_hum[i])))
-        while((power_to_verify > upper_bound) or (power_to_verify < lower_bound)):
+
+
+        def applyNotchFilter(data, w0, Q):
+            """ Apply a notch filter to the data at the considered frequency
+            
+            Arguments:
+                data: [ndarray] The data to be filtered
+                w0: [float] The normalized frequency to be filtered
+                Q: [float] The quality factor of the filter
+                
+            Returns:
+                [ndarray] The filtered data
+
+            """
+
+            # Apply a notch filter to the data at the considered frequency
             b, a = scipy.signal.iirnotch(w0, Q)
-            filtered_data = scipy.signal.lfilter(b, a, good_filtered_data)
+            return scipy.signal.filtfilt(b, a, data)
 
-            p_xx, f = plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
-            #plt.show()
-            plt.clf()
+        # Treat the quality factor as a variable to be optimized. Minimize the difference between the 
+        # predicted background power and the filtered power at the peak frequency
+        def filterResiduals(Q, w0, data, background_power, peak_freq):
+
+            # Apply a notch filter to the data at the considered frequency
+            filtered_data = applyNotchFilter(data, w0, Q)
+            
+            # Compute the PSD of the filtered data)
+            #p_xx, f = plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
+            #plt.clf()
+            p_xx, _ = matplotlib.mlab.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
+
+            # Compute the power in dB
             power_db = 10*np.log10(p_xx)
-            power_to_verify = power_db[frequency]
 
-            if((power_to_verify < upper_bound) and (power_to_verify > lower_bound)):
-                good_filtered_data = np.copy(filtered_data)
-            else:
-                filtered_data = np.copy(good_filtered_data)
-                Q += mains_hum[i]/config.mains_frequency
+            # Return the difference between the background power and the filtered power at the peak frequency
+            return (background_power - power_db[peak_freq])**2
+
+        # Begin the optimization
+        res = scipy.optimize.minimize(filterResiduals, Q, 
+                                      args=(w0, good_filtered_data, background_power, peak_freq),
+                                      method='Nelder-Mead')
+        
+        print(" - Optimized notch filter Q = {:.2f}".format(res.x[0]))
+        
+        # Apply the optimized filter
+        good_filtered_data = applyNotchFilter(good_filtered_data, w0, res.x[0])
+
+
+        # # OLD METHOD:
+        # # Increase the notch filter quality factor until the power at the peak is within the confidence region
+        # while (power_to_verify > upper_bound) or (power_to_verify < lower_bound):
+
+        #     # Apply a notch filter to the data at the considered frequency
+        #     b, a = scipy.signal.iirnotch(w0, Q)
+        #     #filtered_data = scipy.signal.lfilter(b, a, good_filtered_data) # old code, broken now
+
+        #     filtered_data = scipy.signal.filtfilt(b, a, good_filtered_data)
+            
+        #     # Compute the PSD of the filtered data
+        #     p_xx, f = plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
+            
+        #     # Read the power at the peak frequency
+        #     power_db = 10*np.log10(p_xx)
+        #     power_to_verify = power_db[peak_freq]
+
+        #     # # Plot the power to verify and the confidence region
+        #     # plt.plot(peak_freq, power_to_verify, 'r+')
+        #     # plt.axhline(y=lower_bound, color='m', linestyle='--')
+        #     # plt.axhline(y=upper_bound, color='m', linestyle='--')
+
+        #     # plt.show()
+
+        #     plt.clf()
+
+        #     print("  - Q = {:}, ".format(Q))
+
+        #     # If the power is within the confidence region, save the filtered data
+        #     if (power_to_verify < upper_bound) and (power_to_verify > lower_bound):
+        #         good_filtered_data = np.copy(filtered_data)
+
+        #     # If the power is still outside the confidence region, increase the quality factor
+        #     else:
+        #         filtered_data = np.copy(good_filtered_data)
+        #         Q += mains_hum[i]/config.mains_frequency
+
+
         i += 1
 
     print("All frequencies filtered!")
