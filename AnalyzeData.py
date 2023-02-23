@@ -557,6 +557,9 @@ if __name__ == "__main__":
                        help="""If enabled, the program will attempt to automatically find the fireball and 
                        compute the integrated area under the curve.""")
     
+    arg_p.add_argument('--addharms', type=float, nargs='+', \
+        help="""List of additional harmonics to remove from the spectrum. Only the first frequency should be given, the higher order harmonics will be assumed to be multiples of the mains frequency.""")
+    
 
     # Parse input arguments
     cml_args = arg_p.parse_args()
@@ -596,6 +599,14 @@ if __name__ == "__main__":
     
     if not os.path.exists(archived_data_path):
         print('The archived data path: {:s} does not exist!'.format(archived_data_path))
+
+
+    # Extract the additional harmonics to remove from the spectrum
+    additional_harmonics = None
+    if cml_args.addharms:
+        additional_harmonics = cml_args.addharms
+
+    print("Additional harmonics to remove: ", additional_harmonics)
 
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(archived_data_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
@@ -644,6 +655,20 @@ if __name__ == "__main__":
     # Generate an array that contains the frequencies found in the mains hum
     # Mains hum being the 60/50 Hz interference and its higher order harmonics 
     mains_hum = np.arange(config.mains_frequency, fs/2, config.mains_frequency)
+
+    # Add additional harmonics if given
+    if additional_harmonics is not None:
+        for harm in additional_harmonics:
+
+            # Generate frequencies of the harmonics, with the same multiple as the mains hum
+            harm_hum = np.arange(harm, fs/2, config.mains_frequency)
+
+            # Add the harmonics to the list of mains hum frequencies
+            mains_hum = np.append(mains_hum, harm_hum)
+
+    # Sort the list of mains hum frequencies
+    mains_hum = np.sort(mains_hum)
+
 
     # Convert the powers into decibels (dB)
     power_db = 10*np.log10(p_xx)
