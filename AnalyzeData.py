@@ -515,7 +515,7 @@ if __name__ == "__main__":
     csv_path = os.path.join(home_dir,csv_storage_dir)
 
     # Create a directory on the disk for exporting events
-    if(not os.path.isdir(csv_path)):
+    if (not os.path.isdir(csv_path)):
         os.mkdir(csv_path, 0o755)
 
     # Set up input arguments
@@ -571,10 +571,13 @@ if __name__ == "__main__":
     ##########################################################################################################
 
     # Check if there is a config file in the library dir
-    if(os.path.isfile(os.path.join(work_dir, "config.txt"))):
+    config_path = os.path.join(work_dir, "config.txt")
+    if (os.path.isfile(config_path)):
 
         # Read the config in the lib path
         config = readConfig(os.path.join(work_dir, "config.txt"))
+
+        print("Using config file: {:s}".format(config_path))
 
         # Check if the server flag is set in the config
         if(config.read_from_server):
@@ -583,6 +586,7 @@ if __name__ == "__main__":
 
     # If the config does not exist, load defualt values
     else:
+        print("Could not find the config file {:s}, using default values!".format(config_path))
         config = RDMConfig()
 
 
@@ -590,6 +594,9 @@ if __name__ == "__main__":
     # Assign the mains frequency hum if given
     if cml_args.mainsfreq:
         config.mains_frequency = cml_args.mainsfreq[0]
+
+    
+    print("Using mains frequency: {:d} Hz".format(int(config.mains_frequency)))
 
 
     # Take the archive path from the command line if given
@@ -606,7 +613,7 @@ if __name__ == "__main__":
     if cml_args.addharms:
         additional_harmonics = cml_args.addharms
 
-    print("Additional harmonics to remove: ", additional_harmonics)
+        print("Additional harmonics to remove: ", additional_harmonics)
 
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(archived_data_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
