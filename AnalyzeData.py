@@ -506,7 +506,12 @@ if __name__ == "__main__":
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.image as mpimg
+
+    # Name of the config file
+    CONFIG = "config.txt"
     
+    # Default path to data files
+    data_path = os.path.expanduser("~/RadiometerData")
     archived_data_path = os.path.expanduser("~/RadiometerData/ArchivedData")
 
     work_dir = os.getcwd()
@@ -570,24 +575,35 @@ if __name__ == "__main__":
 
     ##########################################################################################################
 
-    # Check if there is a config file in the library dir
-    config_path = os.path.join(work_dir, "config.txt")
-    if (os.path.isfile(config_path)):
+    # Check if there is a config file in either the source dir of the data dir
+    config_path_workdir = os.path.join(work_dir, "config.txt")
+    config_path_datadir = os.path.join(data_path, "config.txt")
+    config_path = None
+
+    if os.path.isfile(config_path_workdir):
+        config_path = config_path_workdir
+    
+    elif os.path.isfile(config_path_datadir):
+        config_path = config_path_datadir
+
+    else:
+        print()
+        print("Could not find the config file in:\n{:s}\nnor in:\n{:s},\nusing default values!\n".format(
+            config_path_workdir, config_path_datadir))
+        config = RDMConfig()
+
+
+    # If the config file exists, read it
+    if config_path is not None:
 
         # Read the config in the lib path
-        config = readConfig(os.path.join(work_dir, "config.txt"))
+        config = readConfig(os.path.join(config_path))
 
         print("Using config file: {:s}".format(config_path))
 
         # Check if the server flag is set in the config
-        if(config.read_from_server):
+        if config.read_from_server:
             archived_data_path = os.path.join(os.path.join("/home", "rdm_" + cml_args.code.lower()), "files")
-
-
-    # If the config does not exist, load defualt values
-    else:
-        print("Could not find the config file {:s}, using default values!".format(config_path))
-        config = RDMConfig()
 
 
 
