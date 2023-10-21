@@ -11,7 +11,6 @@ import argparse
 import tarfile
 import shutil
 import numpy as np
-from time import clock
 from datetime import datetime, timedelta
 
 DATA_SIZE = 2**20

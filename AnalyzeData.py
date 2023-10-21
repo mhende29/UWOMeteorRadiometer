@@ -15,6 +15,8 @@ import scipy.signal
 import scipy.optimize
 import scipy.interpolate
 
+import matplotlib.mlab
+
 from getRDMData import getRDMData
 
 
@@ -366,23 +368,45 @@ def filterInterpolatedSines(time_data, intensity_data, sine_fits):
     return filtered_data, fitted_sines
 
 
+def generateEventName(station_code, station_channel, unix_times):
+    """ Generate a template file name for the event. """
+
+    beg_time = datetime.utcfromtimestamp(unix_times[0])
+    end_time = datetime.utcfromtimestamp(unix_times[-1])
+
+    event_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}".format(
+        station_code, 
+        station_channel, 
+        beg_time.year,
+        beg_time.month,
+        beg_time.day,
+        beg_time.hour,
+        beg_time.minute,
+        beg_time.second, 
+        beg_time.microsecond, 
+        end_time.hour,
+        end_time.minute,
+        end_time.second, 
+        end_time.microsecond
+        )
+
+    return event_name
+
     
  
-def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_data, filtered):
-    beg_time = datetime.utcfromtimestamp(time_data[0])
-    end_time = datetime.utcfromtimestamp(time_data[-1])
+def exportCSV(dir_path, station_code, station_channel, unix_times, intensity_data, filtered):
 
-    waiting_time = end_time - beg_time
-    time_dif = int(waiting_time.total_seconds())
+    # Create an event name
+    event_name = generateEventName(station_code, station_channel, unix_times)
     
     if(filtered):
-        file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}_filtered.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
+        file_name = "{:s}_filtered.csv".format(event_name)
     else:
-        file_name = "{:s}_{:s}_{:04d}{:02d}{:02d}-{:02d}{:02d}{:02d}.{:06d}_{:02d}{:02d}{:02d}.{:06d}.csv".format(station_code, station_channel, beg_time.year,beg_time.month,beg_time.day,beg_time.hour,beg_time.minute,beg_time.second, beg_time.microsecond, end_time.hour,end_time.minute,end_time.second, end_time.microsecond)
+        file_name = "{:s}.csv".format(event_name)
     
     header = ["# Unix Times", "Intensity"]
 
-    data = [[time_data[i], intensity_data[i]] for i in range(len(time_data))]
+    data = [[unix_times[i], intensity_data[i]] for i in range(len(unix_times))]
 
     with open(os.path.join(dir_path, file_name), 'w') as csvfile:
         file = csv.writer(csvfile)
@@ -393,18 +417,45 @@ def export_To_CSV(dir_path, station_code, station_channel, time_data, intensity_
 
 
 
-def psd_fun(coefs, x, y=None):
-    if(y is not None): 
-        return coefs[0] +coefs[1]*np.exp(-((x-coefs[2])/coefs[3])**2) + coefs[4]*np.exp(-((x-coefs[5])/coefs[6])**2) + coefs[7]*np.exp(-((x-coefs[8])/coefs[9])**2) - y
+def backgroundPSDModel(coefs, x, y=None):
+    """  Three term gaussian model used to model the background frequency.
+        f(x) = a1*exp(-((x-b1)/c1)^2) + a2*exp(-((x-b2)/c2)^2) + a3*exp(-((x-b3)/c3)^2) + d
+        
+    """
+
+    # Compute the function value
+    val = coefs[0] \
+        + coefs[1]*np.exp(-((x - coefs[2])/coefs[3])**2) \
+        + coefs[4]*np.exp(-((x - coefs[5])/coefs[6])**2) \
+        + coefs[7]*np.exp(-((x - coefs[8])/coefs[9])**2)
+    
+    # If the data are given, compute the residuals
+    if y is not None: 
+        return val - y
+    
     else:
-        return coefs[0] +coefs[1]*np.exp(-((x-coefs[2])/coefs[3])**2) + coefs[4]*np.exp(-((x-coefs[5])/coefs[6])**2) + coefs[7]*np.exp(-((x-coefs[8])/coefs[9])**2)
+        return val
+    
+def backgroundPSDModelResidualSum(coefs, x, y):
+
+    # Squared value of each residual
+    res = backgroundPSDModel(coefs, x, y=y)**2
+
+    # Smooth approximation of l1 (absolute value) loss
+    return np.sum(2*((1 + res)**0.5 - 1))
 
 
-def back_fun(coefs, x, y=None):
-    if(y is not None): 
-        return (coefs[0] + coefs[1]*x) - y
+def linearBackgroundModel(coefs, x, y=None):
+
+    # Compute the function value
+    val = coefs[0] + coefs[1]*x
+
+    # If the data are given, compute the residuals
+    if y is not None: 
+        return val - y
+    
     else:
-        return (coefs[0] + coefs[1]*x)
+        return val
 
 
 
@@ -455,13 +506,22 @@ if __name__ == "__main__":
     import matplotlib
     import matplotlib.pyplot as plt
     import matplotlib.image as mpimg
+
+    # Name of the config file
+    CONFIG = "config.txt"
     
+    # Default path to data files
+    data_path = os.path.expanduser("~/RadiometerData")
     archived_data_path = os.path.expanduser("~/RadiometerData/ArchivedData")
 
     work_dir = os.getcwd()
     home_dir = os.path.dirname(work_dir)
     csv_storage_dir = "Exported_Data"
     csv_path = os.path.join(home_dir,csv_storage_dir)
+
+    # Create a directory on the disk for exporting events
+    if (not os.path.isdir(csv_path)):
+        os.mkdir(csv_path, 0o755)
 
     # Set up input arguments
     arg_p = argparse.ArgumentParser(description="Get radiometer files.")
@@ -490,6 +550,20 @@ if __name__ == "__main__":
 
     arg_p.add_argument('-n', '--nightplot', action = 'store_true', \
         help="""Loads the night plots. They show an overview of all recorded intensities during the night.""")
+
+    arg_p.add_argument('-p', '--showplots', action = 'store_true', \
+        help="""Show the plots on the screen.""")
+    
+    arg_p.add_argument('-a', '--archivepath', metavar='ARCHIVE_PATH', type=str,
+        help="""Path to the directory with archived. If not given, the default path will be used.""",
+        default=None)
+    
+    arg_p.add_argument('-i', '--integrate', action = 'store_true', \
+                       help="""If enabled, the program will attempt to automatically find the fireball and 
+                       compute the integrated area under the curve.""")
+    
+    arg_p.add_argument('--addharms', type=float, nargs='+', \
+        help="""List of additional harmonics to remove from the spectrum. Only the first frequency should be given, the higher order harmonics will be assumed to be multiples of the mains frequency.""")
     
 
     # Parse input arguments
@@ -501,45 +575,75 @@ if __name__ == "__main__":
 
     ##########################################################################################################
 
-    # Check if there is a config file in the library dir
-    if(os.path.isfile(os.path.join(work_dir, "config.txt"))):
+    # Check if there is a config file in either the source dir of the data dir
+    config_path_workdir = os.path.join(work_dir, "config.txt")
+    config_path_datadir = os.path.join(data_path, "config.txt")
+    config_path = None
+
+    if os.path.isfile(config_path_workdir):
+        config_path = config_path_workdir
+    
+    elif os.path.isfile(config_path_datadir):
+        config_path = config_path_datadir
+
+    else:
+        print()
+        print("Could not find the config file in:\n{:s}\nnor in:\n{:s},\nusing default values!\n".format(
+            config_path_workdir, config_path_datadir))
+        config = RDMConfig()
+
+
+    # If the config file exists, read it
+    if config_path is not None:
 
         # Read the config in the lib path
-        config = readConfig(os.path.join(work_dir, "config.txt"))
+        config = readConfig(os.path.join(config_path))
+
+        print("Using config file: {:s}".format(config_path))
 
         # Check if the server flag is set in the config
-        if(config.read_from_server):
+        if config.read_from_server:
             archived_data_path = os.path.join(os.path.join("/home", "rdm_" + cml_args.code.lower()), "files")
-
-
-    # If the config does not exist, load defualt values
-    else:
-        config = RDMConfig()
 
 
 
     # Assign the mains frequency hum if given
     if cml_args.mainsfreq:
         config.mains_frequency = cml_args.mainsfreq[0]
+
+    
+    print("Using mains frequency: {:d} Hz".format(int(config.mains_frequency)))
+
+
+    # Take the archive path from the command line if given
+    if cml_args.archivepath:
+        archived_data_path = cml_args.archivepath
     
     
     if not os.path.exists(archived_data_path):
         print('The archived data path: {:s} does not exist!'.format(archived_data_path))
+
+
+    # Extract the additional harmonics to remove from the spectrum
+    additional_harmonics = None
+    if cml_args.addharms:
+        additional_harmonics = cml_args.addharms
+
+        print("Additional harmonics to remove: ", additional_harmonics)
 
     # Gather the radiometric data and the time stamps around the given time period
     intensity, unix_times = getRDMData(archived_data_path, cml_args.code, cml_args.channel, cml_args.time, cml_args.range)
 
     filtered = False
 
+    # Make a name for the event
+    event_name = generateEventName(cml_args.code, cml_args.channel, unix_times)
+
 
     # Export data to CSV
     if cml_args.exportcsv:
-        
-        if(not os.path.isdir(csv_path)):
-            os.mkdir(csv_path, 0o755)
 
-
-        export_To_CSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
+        exportCSV(csv_path, cml_args.code, cml_args.channel, unix_times, intensity, filtered)
 
         filtered = True
 
@@ -575,6 +679,20 @@ if __name__ == "__main__":
     # Mains hum being the 60/50 Hz interference and its higher order harmonics 
     mains_hum = np.arange(config.mains_frequency, fs/2, config.mains_frequency)
 
+    # Add additional harmonics if given
+    if additional_harmonics is not None:
+        for harm in additional_harmonics:
+
+            # Generate frequencies of the harmonics, with the same multiple as the mains hum
+            harm_hum = np.arange(harm, fs/2, config.mains_frequency)
+
+            # Add the harmonics to the list of mains hum frequencies
+            mains_hum = np.append(mains_hum, harm_hum)
+
+    # Sort the list of mains hum frequencies
+    mains_hum = np.sort(mains_hum)
+
+
     # Convert the powers into decibels (dB)
     power_db = 10*np.log10(p_xx)
 
@@ -594,6 +712,7 @@ if __name__ == "__main__":
     fit_freqs = list(np.copy(freqs))
 
     # Search 10 elements on either side of the nearest mains hum for the peak power index
+    # This will be identified as the center of the mains hum harmonic
     search_width = 10 
     for i in range(len(mains_hum)):
         max_powers = np.append(max_powers,index[i] - search_width + (p_xx[index[i]-search_width:index[i]+search_width]).argmax()).astype(int)
@@ -606,143 +725,271 @@ if __name__ == "__main__":
     
 
     # Begin a least-squares optimization fit that follows the noise in the psd
+    x0 = np.array([np.median(fit_powers), # Background
+                   np.mean(fit_powers), 2.0, 5.0, # First gaussian (mostly DC component)
+                   0.0,   config.mains_frequency, 1.0, # Second Gaussian
+                   0.0, 2*config.mains_frequency, 1.0  # Third Gaussian
+                   ])
+    
+
+    # Fit the function using Nelder-Mead
+    res = scipy.optimize.minimize(backgroundPSDModelResidualSum, x0, args=(fit_freqs, fit_powers), 
+                                      method='Nelder-Mead')
+    
+    ### OLD CODE ###
     # Begin initial guess's, 0 where additions/subtractions are and 1 where multiplications/divisions are
-    x0 = np.array([0.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0, 1.0, 0.0, 1.0])
+    #x0 = np.array([0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0, 0.0, 1.0])
     
     # The optimization function in question is a three term gaussian model
     # f(x) = a1*exp(-((x-b1)/c1)^2) + a2*exp(-((x-b2)/c2)^2) + a3*exp(-((x-b3)/c3)^2) + d
-    res_lsq = scipy.optimize.least_squares(psd_fun, x0, loss='soft_l1', args=(fit_freqs, fit_powers))
-    print(res_lsq.x)
+
+    # # Fit the function using least-squares
+    # res = scipy.optimize.least_squares(backgroundPSDModel, x0, loss='soft_l1', args=(fit_freqs, fit_powers))
+
+    ### ###
+    
+    print("Three term gaussian fit on the PSD of the background noise")
+    print(res.x)
 
     # Calculate the mean power using the least-squares solution
-    power_means = psd_fun(res_lsq.x, freqs)
+    power_means = backgroundPSDModel(res.x, freqs)
 
-    # Calculate the standard deviation
+    # Calculate the standard deviation of the fit
     power_std = np.std(power_db)
     power_lower_lim = power_means - power_std/4.0
     power_upper_lim = power_means + power_std/4.0
 
+    # Plot the raw signal
+    plt.plot(freqs, power_db, label='Raw signal PSD')
+
     # Plot the fit with a half-sigma sigma confidence bound for filtering 
-    plt.plot(freqs,power_means, 'g', label='Background power fit')
-    plt.plot(freqs,power_lower_lim, linestyle = '--', color = 'm', label=r'Confidence region: $\frac{1}{4}$$\sigma$')
-    plt.plot(freqs,power_upper_lim, linestyle = '--', color = 'm')
+    plt.plot(freqs, power_means, 'g', label='Background power fit')
+    plt.plot(freqs, power_lower_lim, linestyle = '--', color = 'm', label=r'Confidence region: $\frac{1}{4}$$\sigma$')
+    plt.plot(freqs, power_upper_lim, linestyle = '--', color = 'm')
+    
+    # Plot the identified peaks of the mains hum
+    plt.plot(freqs[max_powers], 10*np.log10(p_xx[max_powers]), 'r+', label='Mains hum peaks')
+
     plt.title("Initial Power spectral Density of Raw Signal")
     plt.xlabel("Frequency (Hz)")
     plt.ylabel("Power Spectral Density (dB/Hz)")
     plt.grid(which='both')
-    plt.plot(freqs, power_db, label='Raw signal PSD')
-    plt.plot(freqs[max_powers], 10*np.log10(p_xx[max_powers]), 'r+')
+
     plt.legend(loc=0)
-    plt.show()
 
-    # Begin recursive filtering 
+    plt.savefig(os.path.join(csv_path, event_name + "_psd.png"), dpi=150)
 
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
+
+    
+    
+    # Begin recursive filtering of mains hum harmonics
     filtered_data = np.copy(intensity)
     good_filtered_data = np.copy(filtered_data)
 
     i = 0
-    for frequency in max_powers:
-        power_to_verify = power_db[frequency]
-        lower_bound = power_lower_lim[frequency]
-        upper_bound = power_upper_lim[frequency]
+    for peak_freq in max_powers:
+
+        # Read the power at the peak
+        power_to_verify = power_db[peak_freq]
+
+        # Read the boundaries of the confidence region
+        lower_bound = power_lower_lim[peak_freq]
+        background_power = power_means[peak_freq]
+        upper_bound = power_upper_lim[peak_freq]
+
+        # Define the notch filter parameters
         w0 = mains_hum[i]/(fs/2)
-        Q = 1
+        Q = 1.0
 
         print("Filtering {:}Hz".format(int(mains_hum[i])))
-        while((power_to_verify > upper_bound) or (power_to_verify < lower_bound)):
+
+
+        def applyNotchFilter(data, w0, Q):
+            """ Apply a notch filter to the data at the considered frequency
+            
+            Arguments:
+                data: [ndarray] The data to be filtered
+                w0: [float] The normalized frequency to be filtered
+                Q: [float] The quality factor of the filter
+                
+            Returns:
+                [ndarray] The filtered data
+
+            """
+
+            # Apply a notch filter to the data at the considered frequency
             b, a = scipy.signal.iirnotch(w0, Q)
-            filtered_data = scipy.signal.lfilter(b, a, good_filtered_data)
+            return scipy.signal.filtfilt(b, a, data)
 
-            p_xx, f = plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
-            #plt.show()
-            plt.clf()
+        # Treat the quality factor as a variable to be optimized. Minimize the difference between the 
+        # predicted background power and the filtered power at the peak frequency
+        def filterResiduals(Q, w0, data, background_power, peak_freq):
+
+            # Apply a notch filter to the data at the considered frequency
+            filtered_data = applyNotchFilter(data, w0, Q)
+            
+            # Compute the PSD of the filtered data)
+            #p_xx, f = plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
+            #plt.clf()
+            p_xx, _ = matplotlib.mlab.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
+
+            # Compute the power in dB
             power_db = 10*np.log10(p_xx)
-            power_to_verify = power_db[frequency]
 
-            if((power_to_verify < upper_bound) and (power_to_verify > lower_bound)):
-                good_filtered_data = np.copy(filtered_data)
-            else:
-                filtered_data = np.copy(good_filtered_data)
-                Q += mains_hum[i]/config.mains_frequency
+            # Return the difference between the background power and the filtered power at the peak frequency
+            return (background_power - power_db[peak_freq])**2
+
+        # Begin the optimization
+        res = scipy.optimize.minimize(filterResiduals, Q, 
+                                      args=(w0, good_filtered_data, background_power, peak_freq),
+                                      method='Nelder-Mead')
+        
+        print(" - Optimized notch filter Q = {:.2f}".format(res.x[0]))
+        
+        # Apply the optimized filter
+        good_filtered_data = applyNotchFilter(good_filtered_data, w0, res.x[0])
+
+
+        # ### OLD METHOD ###
+        # # Increase the notch filter quality factor until the power at the peak is within the confidence region
+        # while (power_to_verify > upper_bound) or (power_to_verify < lower_bound):
+
+        #     # Apply a notch filter to the data at the considered frequency
+        #     b, a = scipy.signal.iirnotch(w0, Q)
+        #     #filtered_data = scipy.signal.lfilter(b, a, good_filtered_data) # old code, broken now
+
+        #     filtered_data = scipy.signal.filtfilt(b, a, good_filtered_data)
+            
+        #     # Compute the PSD of the filtered data
+        #     p_xx, f = plt.psd(filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
+            
+        #     # Read the power at the peak frequency
+        #     power_db = 10*np.log10(p_xx)
+        #     power_to_verify = power_db[peak_freq]
+
+        #     # # Plot the power to verify and the confidence region
+        #     # plt.plot(peak_freq, power_to_verify, 'r+')
+        #     # plt.axhline(y=lower_bound, color='m', linestyle='--')
+        #     # plt.axhline(y=upper_bound, color='m', linestyle='--')
+
+        #     # plt.show()
+
+        #     plt.clf()
+
+        #     print("  - Q = {:}, ".format(Q))
+
+        #     # If the power is within the confidence region, save the filtered data
+        #     if (power_to_verify < upper_bound) and (power_to_verify > lower_bound):
+        #         good_filtered_data = np.copy(filtered_data)
+
+        #     # If the power is still outside the confidence region, increase the quality factor
+        #     else:
+        #         filtered_data = np.copy(good_filtered_data)
+        #         Q += mains_hum[i]/config.mains_frequency
+        # ### ###
+
+
         i += 1
 
     print("All frequencies filtered!")
+
+    print()
     print("Finding background level")
 
     # Begin another least-squares optimization fit that follows the background level in the data
     # Begin initial guess's, 0 where additions/subtractions are and 1 where multiplications/divisions are
     x0 = np.array([1.0, 1.0])
 
-    # Attempt to fit a quartic polynomial
-    res_lsq_back = scipy.optimize.least_squares(back_fun, x0, loss='cauchy', args=(time_relative, good_filtered_data))
-    print(res_lsq_back.x)
+    # Attempt to fit the background model on the filtered data
+    res_lsq_back = scipy.optimize.least_squares(linearBackgroundModel, x0, 
+                                                args=(time_relative, good_filtered_data)
+                                                )
+
+    print("Data background fit: {}".format(res_lsq_back.x))
+
     # Calculate the mean power using the least-squares solution
-    background_level = back_fun(res_lsq_back.x, time_relative)
+    background_level_arr = linearBackgroundModel(res_lsq_back.x, time_relative)
 
-    # Calculate number of samples in window, since the main harmonice is 60/50 Hz which is 1/freq s, that will be the smallest window we should use 
-    window_width = int(fs/mains_hum[0])
-    window_shift = int(window_width/2.0)
 
-    # To find the area beneath the curve, find the highest point in the data becuase it's likely the meteor
-    peak_index = np.argmax(good_filtered_data)
+    ### Try to locate the fireball in the data and determine its boundaries ###
 
-    i = peak_index
-    while(True):
-        if(good_filtered_data[i]<background_level[i] or i==0):
-            left_std_start = i
-            break
-        else:
-            i -= 1
+    if cml_args.integrate:
 
-    i = peak_index
-    while(True):
-        if(good_filtered_data[i]<background_level[i] or i==len(good_filtered_data)-1):
-            right_std_start = i
-            break
-        else:
-            i += 1
+        # Calculate number of samples in window, since the main harmonice is 60/50 Hz which is 1/freq s, that will be the smallest window we should use 
+        window_width = int(fs/mains_hum[0])
+        window_shift = int(window_width/2.0)
 
-    left_back_low = background_level - 3*np.std(good_filtered_data[0:left_std_start])
-    left_back_upp = background_level + 3*np.std(good_filtered_data[0:left_std_start])
+        # To find the area beneath the curve, find the highest point in the data becuase it's likely the meteor
+        peak_index = np.argmax(good_filtered_data)
 
-    right_back_low = background_level - 3*np.std(good_filtered_data[right_std_start:-1])
-    right_back_upp = background_level + 3*np.std(good_filtered_data[right_std_start:-1])
+        i = peak_index
+        while(True):
+            if(good_filtered_data[i]<background_level_arr[i] or i==0):
+                left_std_start = i
+                break
+            else:
+                i -= 1
 
-    i = 0
-    window_mean = np.mean(good_filtered_data[peak_index - (i + 1)*window_shift:peak_index - (i - 1)*window_shift])
+        i = peak_index
+        while(True):
+            if(good_filtered_data[i]<background_level_arr[i] or i==len(good_filtered_data)-1):
+                right_std_start = i
+                break
+            else:
+                i += 1
 
-    while(True):
-        i += 1
+        left_back_low = background_level_arr - 3*np.std(good_filtered_data[0:left_std_start])
+        left_back_upp = background_level_arr + 3*np.std(good_filtered_data[0:left_std_start])
+
+        right_back_low = background_level_arr - 3*np.std(good_filtered_data[right_std_start:-1])
+        right_back_upp = background_level_arr + 3*np.std(good_filtered_data[right_std_start:-1])
+
+        i = 0
         window_mean = np.mean(good_filtered_data[peak_index - (i + 1)*window_shift:peak_index - (i - 1)*window_shift])
-        try:
-            if(window_mean < left_back_upp[peak_index - i*window_shift] and window_mean > left_back_low[peak_index - i*window_shift]):
-                peak_lower_bound = peak_index - i*window_shift
+
+        while(True):
+            i += 1
+            window_mean = np.mean(good_filtered_data[peak_index - (i + 1)*window_shift:peak_index - (i - 1)*window_shift])
+            try:
+                if(window_mean < left_back_upp[peak_index - i*window_shift] and window_mean > left_back_low[peak_index - i*window_shift]):
+                    peak_lower_bound = peak_index - i*window_shift
+                    break
+            except IndexError:
                 break
-        except IndexError:
-            break
 
-    i = 0
-    window_mean = np.mean(good_filtered_data[peak_index + (i - 1)*window_shift:peak_index + (i + 1)*window_shift])
-
-    while(True):
-        i += 1
+        i = 0
         window_mean = np.mean(good_filtered_data[peak_index + (i - 1)*window_shift:peak_index + (i + 1)*window_shift])
-        try:
-            if(window_mean < right_back_upp[peak_index + i*window_shift] and window_mean > right_back_low[peak_index + i*window_shift]):
-                peak_upper_bound = peak_index + i*window_shift
-                break
-        except IndexError:
-            break
 
-    try:
-        filtered_curve_area = scipy.integrate.trapz(good_filtered_data[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
-        background_area = scipy.integrate.trapz(background_level[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
-        light_curve_relative_to_background = filtered_curve_area - background_area
-    except NameError:
-        print("Integration bounds could not be found.")
+        while(True):
+            i += 1
+            window_mean = np.mean(good_filtered_data[peak_index + (i - 1)*window_shift:peak_index + (i + 1)*window_shift])
+            try:
+                if(window_mean < right_back_upp[peak_index + i*window_shift] and window_mean > right_back_low[peak_index + i*window_shift]):
+                    peak_upper_bound = peak_index + i*window_shift
+                    break
+            except IndexError:
+                break
+
+        try:
+            filtered_curve_area = scipy.integrate.trapz(good_filtered_data[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
+            background_area = scipy.integrate.trapz(background_level_arr[peak_lower_bound:peak_upper_bound], time_relative[peak_lower_bound:peak_upper_bound])
+            light_curve_relative_to_background = filtered_curve_area - background_area
+        except NameError:
+            print("Integration bounds could not be found.")
+
+
+    ### ###
 
     
 
+    ### Plot the spectrograms of the original data and the filtered data ###
+
+    # Compute the spectrogram
     spectrum1, freqs1, t1, im1 = plt.specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
     spectrum2, freqs2, t2, im2 = plt.specgram(good_filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0)
     plt.close()
@@ -764,11 +1011,14 @@ if __name__ == "__main__":
 
     # Plotting original spectrogram on top plot
     plt.sca(axs[0])
-    axs[0].set_title("Before and after filtering.")
+    axs[0].set_title("Spectrogram before filtering")
     axs[0].set_ylabel("Frequency (Hz)")
     spectrum1, freqs1, t1, im1 = axs[0].specgram(intensity, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0, vmin=min_val, vmax=max_val)
+
+
     # Plotting filtered spectrogram on bottom plot
     plt.sca(axs[1])
+    axs[0].set_title("Spectrogram after filtering")
     axs[1].set_xlabel("Time")
     axs[1].set_ylabel("Frequency (Hz)")
     spectrum2, freqs2, t2, im2 = axs[1].specgram(good_filtered_data, Fs=sps, cmap='inferno', detrend='linear', NFFT=256, noverlap=0, vmin=min_val, vmax=max_val)
@@ -790,40 +1040,64 @@ if __name__ == "__main__":
     plt.sca(ax3)
     plt.xticks(rotation=30)
 
-    plt.show()
+    plt.savefig(os.path.join(csv_path, event_name + "_spectrograms.png"), dpi=150)
 
-    print()
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
 
-    #sys.exit()
 
+    
+
+    
+    # Plot the raw data, the filtered data, and the background level
     plt.plot(all_datetime, intensity, label='Raw Data')
     plt.plot(all_datetime, good_filtered_data, label='Filtered Data')
-    plt.plot(all_datetime, background_level, label='Background Level',color='green')
-    plt.plot(all_datetime[0:left_std_start], left_back_upp[0:left_std_start], linestyle = '--', color = 'm')
-    plt.plot(all_datetime[0:left_std_start], left_back_low[0:left_std_start], linestyle = '--', color = 'm')
-    plt.plot(all_datetime[right_std_start:-1], right_back_upp[right_std_start:-1], linestyle = '--', color = 'm')
-    plt.plot(all_datetime[right_std_start:-1], right_back_low[right_std_start:-1], linestyle = '--', color = 'm')
-    try:
-        plt.axvline(x=all_datetime[peak_upper_bound], color='red')
-        plt.axvline(x=all_datetime[peak_lower_bound], color='red')
-        plt.fill_between(all_datetime[peak_lower_bound:peak_upper_bound], good_filtered_data[peak_lower_bound:peak_upper_bound], background_level[peak_lower_bound:peak_upper_bound], color='magenta')
-    except NameError:
-        pass
+    plt.plot(all_datetime, background_level_arr, label='Background Level', color='green')
+
+    if cml_args.integrate:
+
+        plt.plot(all_datetime[0:left_std_start], left_back_upp[0:left_std_start], linestyle = '--', color = 'm')
+        plt.plot(all_datetime[0:left_std_start], left_back_low[0:left_std_start], linestyle = '--', color = 'm')
+        plt.plot(all_datetime[right_std_start:-1], right_back_upp[right_std_start:-1], linestyle = '--', color = 'm')
+        plt.plot(all_datetime[right_std_start:-1], right_back_low[right_std_start:-1], linestyle = '--', color = 'm')
+        try:
+            plt.axvline(x=all_datetime[peak_upper_bound], color='red')
+            plt.axvline(x=all_datetime[peak_lower_bound], color='red')
+            plt.fill_between(all_datetime[peak_lower_bound:peak_upper_bound], good_filtered_data[peak_lower_bound:peak_upper_bound], background_level_arr[peak_lower_bound:peak_upper_bound], color='magenta')
+        except NameError:
+            pass
 
     plt.xticks(rotation=30)
     plt.legend()
-    plt.show()
+
+    plt.savefig(os.path.join(csv_path, event_name + "_data.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
 
     corrected_datetime = all_datetime[int(0.02*len(all_datetime)):-1]
     corrected_good_data = good_filtered_data[int(0.02*len(good_filtered_data)):-1]
-    corrected_background_level = background_level[int(0.02*len(background_level)):-1]
+    corrected_background_level_arr = background_level_arr[int(0.02*len(background_level_arr)):-1]
 
     plt.plot(corrected_datetime, corrected_good_data, label='Filtered Data')
-    plt.plot(corrected_datetime, corrected_background_level, label='Background Level',color='green')
+    plt.plot(corrected_datetime, corrected_background_level_arr, label='Background Level',color='green')
     plt.xticks(rotation=30)
     plt.title("Filtered Data")
     plt.legend()
-    plt.show()
+
+    plt.savefig(os.path.join(csv_path, event_name + "_filtered_data.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
 
     plt.psd(intensity, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
     plt.psd(good_filtered_data, Fs=sps, detrend='linear', NFFT=2048, noverlap=0)
@@ -831,4 +1105,11 @@ if __name__ == "__main__":
     plt.plot(freqs,power_means, 'g')
     plt.plot(freqs,power_lower_lim, linestyle = '--', color = 'm')
     plt.plot(freqs,power_upper_lim, linestyle = '--', color = 'm')
-    plt.show()
+    
+    plt.savefig(os.path.join(csv_path, event_name + "_psd_filtered.png"), dpi=150)
+
+    if cml_args.showplots:
+        plt.show()
+    else:
+        plt.clf()
+        plt.close()
