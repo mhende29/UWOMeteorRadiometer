@@ -5,9 +5,24 @@ Only supports Python 3, Python 2 not supported. Note: For now, it seems it doesn
 
 ## Installation
 
-First, you will need to install the BCM2835 library from the Waveshare website, which is used the by ADC: [BCM2835](http://www.airspayce.com/mikem/bcm2835/bcm2835-1.71.tar.gz). Unzip it and follow the instructions in the 'INSTALL' file that should be present in the extracted directory. It's a very basic .configure, make, make install procedure.
+First, you will need to install the BCM2835 library from the Waveshare website, which is used the by ADC: [BCM2835](http://www.airspayce.com/mikem/bcm2835/bcm2835-1.73.tar.gz). 
+```
+wget https://www.airspayce.com/mikem/bcm2835/bcm2835-1.73.tar.gz
+```
 
-Next, in the UWOMeterRadiometer directory run the ```python3_radiometer_installation.sh``` script to install all required packages. This will take a while.
+Unzip it and follow the instructions in the 'INSTALL' file that should be present in the extracted directory. It's a very basic .configure, make, make install procedure.
+```
+tar zxvf bcm2835-1.73.tar.gz 
+cd bcm2835-1.73
+sudo ./configure && sudo make && sudo make check && sudo make install
+```
+
+Clone the UWOMeteorRadiometer repository.
+```
+got clone https://github.com/Habraken/UWOMeteorRadiometer
+```
+
+Next, in the UWOMeterRadiometer directory run the ```sudo ./python3_radiometer_installation.sh``` script to install all required packages. This will take a while.
 
 Then in the UWOMeteorRadiometer folder run:
 ```
@@ -21,6 +36,7 @@ After installation, run the radiometer record script:
 ```
 sudo python3 RadiometerRun.py
 ```
+use ```--help```for options.
 
 Sudo privileges are required by the BCM2835 library and there is no way around them.
 
