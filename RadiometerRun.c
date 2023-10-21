@@ -99,8 +99,8 @@ typedef enum {FALSE = 0, TRUE = !FALSE} bool;
 
 typedef struct
 {
-	uint8_t Channel;			/* The current channel*/
-	uint8_t ScanMode;	/*Scanning mode,   0  Single-ended input  8 channel£¬ 1 Differential input  4 channel*/
+	uint8_t Channel;	/* The current channel*/
+	uint8_t ScanMode;	/* Scanning mode, =0: Single-ended input 8 channels =1: Differential input 4 channels*/
 }ADS1256_VAR_T;
 
 
@@ -248,9 +248,11 @@ void bsp_InitADS1256(void)
 
 void ADS1256_StartScan(uint8_t _ucScanMode)
 {
-	g_tADS1256.ScanMode = _ucScanMode;
+	//g_tADS1256.ScanMode = _ucScanMode;
+    g_tADS1256.ScanMode = 1;
 
-    g_tADS1256.Channel = 0;
+    //g_tADS1256.Channel = 0;
+    g_tADS1256.Channel = 2;
 	
 
 }
@@ -291,9 +293,9 @@ void ADS1256_CfgADC(uint8_t _gain, uint8_t _drate)
 
 	{
         /* Storage ads1256 register configuration parameters */
-        uint8_t buf[4];		
+        uint8_t buf[4]; //buf[0]=STATUS, buf[1]=MUX, buf[2]=ADCON, buf[3]=DRATE
 
-		/*Status register define
+		/* STATUS register define, adress 0x00
 			Bits 7-4 ID3, ID2, ID1, ID0  Factory Programmed Identification Bits (Read Only)
 
 			Bit 3 ORDER: Data Output Bit Order
@@ -316,16 +318,40 @@ void ADS1256_CfgADC(uint8_t _gain, uint8_t _drate)
 			Bit 0 DRDY :  Data Ready (Read Only)
 				This bit duplicates the state of the DRDY pin.
 
-			ACAL=1  enable  calibration
+			The new (passive) radiometer requires ACAL=1 and BUFEN=1 enable  auto calibration and high impedance input buffer
 		*/
-		//buf[0] = (0 << 3) | (1 << 2) | (1 << 1);//enable the internal buffer
-        buf[0] = (0 << 3) | (1 << 2) | (0 << 1);  // The internal buffer is prohibited
+		buf[0] = (0 << 3) | (1 << 2) | (1 << 1);    // ORDER=0, ACAL=1 and BUFEN=1
+        
+        /* MUX register define, adress 0x01
+            Bits 7-4 PSEL3, PSEL2, PSEL1, PSEL0: Positive Input Channel (AIN P) Select
+                0000 = AIN0 (default)
+                0001 = AIN1
+                0010 = AIN2 (ADS1256 only)
+                0011 = AIN3 (ADS1256 only)
+                0100 = AIN4 (ADS1256 only)
+                0101 = AIN5 (ADS1256 only)
+                0110 = AIN6 (ADS1256 only)
+                0111 = AIN7 (ADS1256 only)
+                1xxx = AINCOM (when PSEL3 = 1, PSEL2, PSEL1, PSEL0 are “don’t care”)
+            NOTE: When using an ADS1255 make sure to only select the available inputs.
 
-        //ADS1256_WriteReg(REG_STATUS, (0 << 3) | (1 << 2) | (1 << 1));
+            Bits 3-0 NSEL3, NSEL2, NSEL1, NSEL0: Negative Input Channel (AIN N )Select
+                0000 = AIN0
+                0001 = AIN1 (default)
+                0010 = AIN2 (ADS1256 only)
+                0011 = AIN3 (ADS1256 only)
+                0100 = AIN4 (ADS1256 only)
+                0101 = AIN5 (ADS1256 only)
+                0110 = AIN6 (ADS1256 only)
+                0111 = AIN7 (ADS1256 only)
+                1xxx = AINCOM (when NSEL3 = 1, NSEL2, NSEL1, NSEL0 are “don’t care”)
+                NOTE: When using an ADS1255 make sure to only select the available inputs.
 
-		buf[1] = 0x08;	
+            The new (passive) radiometer is hard-wired to AIN4 and AIN5
+        */
+		buf[1] = 0x54;	
 
-		/*	ADCON: A/D Control Register (Address 02h)
+		/* ADCON register define, address 0x02
 			Bit 7 Reserved, always 0 (Read Only)
 			Bits 6-5 CLK1, CLK0 : D0/CLKOUT Clock Out Rate Setting
 				00 = Clock Out OFF
@@ -351,20 +377,44 @@ void ADS1256_CfgADC(uint8_t _gain, uint8_t _drate)
 				101 = 32
 				110 = 64
 				111 = 64
+
+            The new (passive) radiometer can be set as required by the config.txt file.
 		*/
 		buf[2] = (0 << 5) | (0 << 3) | (_gain << 0);
-		//ADS1256_WriteReg(REG_ADCON, (0 << 5) | (0 << 2) | (GAIN_1 << 1));	/*choose 1: gain 1 ;input 5V/
+
+        /* DRATE register define, adress 0x03
+            Bits 7-0 DR[7: 0]: Data Rate Setting (1)
+                11110000, 0xF0 = 30,000SPS (default)
+                11100000, 0xE0 = 15,000SPS
+                11010000, 0xD0 = 7,500SPS
+                11000000, 0xC0 = 3,750SPS
+                10110000, 0xB0 = 2,000SPS
+                10100001, 0xA1 = 1,000SPS
+                10010010, 0x92 = 500SPS
+                10000010, 0x82 = 100SPS
+                01110010, 0x72 = 60SPS
+                01100011, 0x63 = 50SPS
+                01010011, 0x53 = 30SPS
+                01000011, 0x43 = 25SPS
+                00110011, 0x33 = 15SPS
+                00100011, 0x23 = 10SPS
+                00010011, 0x13 = 5SPS
+                00000011, 0x03 = 2.5SPS
+            (1) for fCLKIN = 7.68MHz. Data rates scale linearly with fCLKIN.
+
+           The new (passive) radiometer can be set as required by the config.txt file.
+        */
 		buf[3] = _drate;	
 
         // Send the configuration parameters to the ADC
 		CS_0();	
-		ADS1256_Send8Bit(CMD_WREG | 0);	/* Write command register, send the register address */
-		ADS1256_Send8Bit(0x03);			/* Register number 4,Initialize the number  -1*/
+		ADS1256_Send8Bit(CMD_WREG | 0);	/* Write command register, send the register start address */
+		ADS1256_Send8Bit(0x03);			/* 2nd CMD byte number of bytes: 4 - 1                     */
 
-		ADS1256_Send8Bit(buf[0]);	/* Set the status register */
-		ADS1256_Send8Bit(buf[1]);	/* Set the input channel parameters */
-		ADS1256_Send8Bit(buf[2]);	/* Set the ADCON control register,gain */
-		ADS1256_Send8Bit(buf[3]);	/* Set the output rate */
+		ADS1256_Send8Bit(buf[0]);	/* Set the STATUS register */
+		ADS1256_Send8Bit(buf[1]);	/* Set the MUX register    */
+		ADS1256_Send8Bit(buf[2]);	/* Set the ADCON register  */
+		ADS1256_Send8Bit(buf[3]);	/* Set the DARTE register  */
 
 		CS_1();	/* SPI  cs = 1 */
 	}
